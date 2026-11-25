@@ -4224,7 +4224,7 @@ List<String> getPrinterNames() {
   }
 }
 
-const String kAppDisplayName = '宸ヤ綔鍙?;
+const String kAppDisplayName = '工作台';
 
 String get appName => kAppDisplayName;
 
