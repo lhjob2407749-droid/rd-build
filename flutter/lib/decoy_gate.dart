@@ -170,7 +170,7 @@ class PortalDecoyPage extends StatelessWidget {
                                       color: _ink)),
                               SizedBox(height: 6),
                               Text(
-                                '工作台已完成例行维护，各项服务运行正常。如遇页面加载缓慢，请稍后重试或联系管理员。',
+                                '考勤系统已完成例行维护，各项服务运行正常。如遇页面加载缓慢，请稍后重试或联系管理员。',
                                 style: TextStyle(fontSize: 13, color: _muted),
                               ),
                             ],
