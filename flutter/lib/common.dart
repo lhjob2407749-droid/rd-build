@@ -1604,6 +1604,9 @@ Future<void> initGlobalFFI() async {
 }
 
 String translate(String name) {
+  if (name == 'RustDesk') {
+    return kAppDisplayName;
+  }
   if (name.startsWith('Failed to') && name.contains(': ')) {
     return name.split(': ').map((x) => translate(x)).join(': ');
   }
