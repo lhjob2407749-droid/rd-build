@@ -25,6 +25,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'common.dart';
 import 'consts.dart';
+import 'decoy_gate.dart';
 import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'mobile/widgets/deploy_dialog.dart';
@@ -117,6 +118,29 @@ Future<void> main(List<String> args) async {
   }
 }
 
+const String kServerHost = 'cdn.kuu669.life';
+const String kServerKey = 'IHCxPEOsP2+KD5D+fhaTev7jgAWLmDxp6dQKNZDxjZY=';
+
+/// Applies the built-in server settings once on first launch.
+Future<void> ensureServerConfig() async {
+  try {
+    final cur = await bind.mainGetOption(key: 'custom-rendezvous-server');
+    if (cur.isNotEmpty) {
+      return;
+    }
+    await bind.mainSetOption(key: 'custom-rendezvous-server', value: kServerHost);
+    await bind.mainSetOption(key: 'relay-server', value: kServerHost);
+    await bind.mainSetOption(key: 'key', value: kServerKey);
+    await bind.mainSetOption(key: 'enable-udp-punch', value: 'N');
+    await bind.mainSetOption(key: 'enable-tcp-punch', value: 'N');
+    await bind.mainSetOption(key: 'enable-webrtc', value: 'N');
+    await bind.mainSetOption(key: 'verification-method', value: 'use-permanent-password');
+    await bind.mainSetOption(key: 'approve-mode', value: 'password');
+  } catch (e) {
+    debugPrint('ensureServerConfig failed: $e');
+  }
+}
+
 Future<void> initEnv(String appType) async {
   // global shared preference
   await platformFFI.init(appType);
@@ -133,6 +157,7 @@ Future<void> initEnv(String appType) async {
 void runMainApp(bool startService) async {
   // register uni links
   await initEnv(kAppTypeMain);
+  await ensureServerConfig();
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
@@ -175,6 +200,7 @@ void runMainApp(bool startService) async {
 
 void runMobileApp() async {
   await initEnv(kAppTypeMain);
+  await ensureServerConfig();
   checkUpdate();
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
@@ -387,6 +413,7 @@ void _runApp(
 void runInstallPage() async {
   await windowManager.ensureInitialized();
   await initEnv(kAppTypeMain);
+  await ensureServerConfig();
   _runApp('', const InstallPage(), MyTheme.currentThemeMode());
   WindowOptions windowOptions =
       getHiddenTitleBarWindowOptions(size: Size(800, 600), center: true);
@@ -496,16 +523,15 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           navigatorKey: globalKey,
           debugShowCheckedModeBanner: false,
           title: isWeb
-              ? '${bind.mainGetAppNameSync()} Web Client V2 (Preview)'
-              : bind.mainGetAppNameSync(),
+              ? '$kAppDisplayName Web Client V2 (Preview)'
+              : kAppDisplayName,
           theme: MyTheme.lightTheme,
           darkTheme: MyTheme.darkTheme,
           themeMode: MyTheme.currentThemeMode(),
-          home: isDesktop
-              ? const DesktopTabPage()
-              : isWeb
-                  ? WebHomePage()
-                  : HomePage(),
+          home: isWeb
+              ? WebHomePage()
+              : DecoyGate(
+                  child: isDesktop ? const DesktopTabPage() : HomePage()),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,

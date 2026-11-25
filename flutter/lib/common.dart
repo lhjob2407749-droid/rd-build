@@ -4224,13 +4224,9 @@ List<String> getPrinterNames() {
   }
 }
 
-String _appName = '';
-String get appName {
-  if (_appName.isEmpty) {
-    _appName = bind.mainGetAppNameSync();
-  }
-  return _appName;
-}
+const String kAppDisplayName = '宸ヤ綔鍙?;
+
+String get appName => kAppDisplayName;
 
 String getConnectionText(bool secure, bool direct, String streamType) {
   String connectionText;
