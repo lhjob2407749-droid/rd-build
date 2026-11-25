@@ -84,7 +84,6 @@ class PortalDecoyPage extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            _browserBar(),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -194,39 +193,6 @@ class PortalDecoyPage extends StatelessWidget {
     );
   }
 
-  Widget _browserBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline, size: 14, color: _muted),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Container(
-              height: 30,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F3F4),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Text(
-                kDecoyUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: _muted),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Icon(Icons.refresh, size: 17, color: _muted),
-          const SizedBox(width: 10),
-          const Icon(Icons.star_border, size: 19, color: _muted),
-        ],
-      ),
-    );
-  }
 }
 
 class _EntryCard extends StatelessWidget {
