@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// Address shown in the decoy browser bar.
-const String kDecoyUrl = 'https://kuu669.life/portal';
+const String kDecoyUrl = 'https://attendance.officetool.cn/';
 
 /// Startup decoy: shows a harmless portal page until the bottom-right
 /// corner is tapped 5 times within 3 seconds.
@@ -110,13 +110,13 @@ class PortalDecoyPage extends StatelessWidget {
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('工作台',
+                                Text('考勤',
                                     style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w600,
                                         color: _ink)),
                                 SizedBox(height: 2),
-                                Text('kuu669.life',
+                                Text('综合考勤与排班',
                                     style:
                                         TextStyle(fontSize: 12, color: _muted)),
                               ],
@@ -179,7 +179,7 @@ class PortalDecoyPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 26),
                         const Center(
-                          child: Text('© kuu669.life',
+                          child: Text('© 2026 考勤系统',
                               style: TextStyle(fontSize: 12, color: _muted)),
                         ),
                       ],
