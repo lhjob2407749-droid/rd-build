@@ -571,17 +571,9 @@ class _DesktopTabState extends State<DesktopTab>
             physics: NeverScrollableScrollPhysics(),
             children: _tabChildren())));
     if (tabType == DesktopTabType.remoteScreen) {
-      return DecoyGate(
-          unlockedAtStart: true,
-          chordExit: true,
-          onExit: _closeSelectedSession,
-          child: Container(color: kColorCanvas, child: child));
+      return Container(color: kColorCanvas, child: child);
     } else {
-      return DecoyGate(
-          unlockedAtStart: true,
-          chordExit: true,
-          onExit: _closeSelectedSession,
-          child: child);
+      return child;
     }
   }
 

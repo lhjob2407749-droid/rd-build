@@ -44,6 +44,8 @@ class _DecoyGateState extends State<DecoyGate>
   Timer? _blurTimer;
   Timer? _relockPoll;
   Timer? _idleTimer;
+  Timer? _lockPoll;
+  bool _wasLocked = false;
   final FocusNode _kbdFocus = FocusNode();
 
   void _bumpActivity() {
@@ -84,6 +86,27 @@ class _DecoyGateState extends State<DecoyGate>
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
     }
+    if (Platform.isWindows) {
+      _lockPoll = Timer.periodic(const Duration(seconds: 4), (_) async {
+        try {
+          final r = await Process.run(
+              'tasklist', ['/fi', 'IMAGENAME eq LogonUI.exe', '/nh']);
+          final locked = (r.stdout as String).contains('LogonUI.exe');
+          if (locked && !_wasLocked) {
+            _wasLocked = true;
+            if (mounted) {
+              if (widget.chordExit) {
+                _exitIfSession();
+              } else {
+                _lock();
+              }
+            }
+          } else if (!locked) {
+            _wasLocked = false;
+          }
+        } catch (_) {}
+      });
+    }
   }
 
   @override
@@ -91,6 +114,7 @@ class _DecoyGateState extends State<DecoyGate>
     _timer?.cancel();
     _blurTimer?.cancel();
     _relockPoll?.cancel();
+    _lockPoll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     if (widget.chordExit) {
@@ -118,6 +142,7 @@ class _DecoyGateState extends State<DecoyGate>
   /// via the 4-key chord, so it goes back to the decoy as well.
   void _startRelockPoll() {
     _relockPoll?.cancel();
+    _lockPoll?.cancel();
     _relockPoll = Timer.periodic(const Duration(milliseconds: 1200), (t) async {
       if (!mounted) return;
       try {
