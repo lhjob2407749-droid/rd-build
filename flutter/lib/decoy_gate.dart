@@ -121,8 +121,7 @@ class _DecoyWebState extends State<DecoyWeb> {
 
   @override
   void dispose() {
-    _android?.dispose();
-    _windows?.dispose();
+    (_android as dynamic)?.dispose();
     super.dispose();
   }
 
