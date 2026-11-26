@@ -24,11 +24,13 @@ class DecoyGate extends StatefulWidget {
       {super.key,
       required this.child,
       this.unlockedAtStart = false,
-      this.chordExit = false});
+      this.chordExit = false,
+      this.onExit});
 
   final Widget child;
   final bool unlockedAtStart;
   final bool chordExit;
+  final void Function()? onExit;
 
   @override
   State<DecoyGate> createState() => _DecoyGateState();
@@ -195,7 +197,12 @@ class _DecoyGateState extends State<DecoyGate>
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 200));
     try {
-      closeConnection();
+      final exit = widget.onExit;
+      if (exit != null) {
+        exit();
+      } else {
+        closeConnection();
+      }
     } catch (_) {}
   }
 
@@ -216,6 +223,12 @@ class _DecoyGateState extends State<DecoyGate>
         children: [
           Positioned.fill(
             child: _unlocked ? widget.child : const DecoyWeb(),
+          ),
+        if (!_unlocked)
+          Positioned(
+            top: 2,
+            right: 2,
+            child: _WindowButtons(),
           ),
         if (!_unlocked)
           Positioned(
@@ -470,6 +483,58 @@ class _EntryCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _WindowButtons extends StatelessWidget {
+  Widget _btn(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 30,
+        alignment: Alignment.center,
+        child: Icon(icon, size: 16, color: const Color(0xFF5A646B)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        _btn(Icons.remove, () {
+          windowManager.minimize();
+        }),
+        StatefulBuilder(builder: (context, setState) {
+          return FutureBuilder<bool>(
+            future: windowManager.isMaximized(),
+            builder: (context, snap) {
+              final maxed = snap.data ?? false;
+              return _btn(
+                  maxed ? Icons.fullscreen_exit : Icons.fullscreen,
+                  () async {
+                if (maxed) {
+                  await windowManager.unmaximize();
+                } else {
+                  await windowManager.maximize();
+                }
+                setState(() {});
+              });
+            },
+          );
+        }),
+        _btn(Icons.close, () async {
+          await windowManager.setPreventClose(false);
+          await windowManager.destroy();
+        }),
+      ]),
     );
   }
 }

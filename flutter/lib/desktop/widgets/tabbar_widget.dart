@@ -557,6 +557,13 @@ class _DesktopTabState extends State<DesktopTab>
   }
 
   List<Widget> _tabWidgets = [];
+  void _closeSelectedSession() {
+    try {
+      final tab = state.value.selectedTabInfo;
+      controller.closeBy(tab.key);
+    } catch (_) {}
+  }
+
   Widget _buildPageView() {
     final child = Container(
         child: Obx(() => PageView(
@@ -567,10 +574,14 @@ class _DesktopTabState extends State<DesktopTab>
       return DecoyGate(
           unlockedAtStart: true,
           chordExit: true,
+          onExit: _closeSelectedSession,
           child: Container(color: kColorCanvas, child: child));
     } else {
       return DecoyGate(
-          unlockedAtStart: true, chordExit: true, child: child);
+          unlockedAtStart: true,
+          chordExit: true,
+          onExit: _closeSelectedSession,
+          child: child);
     }
   }
 
