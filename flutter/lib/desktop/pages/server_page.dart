@@ -402,17 +402,7 @@ class _CloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: () {
-        windowManager.close();
-      },
-      icon: const Icon(
-        IconFont.close,
-        size: 18,
-      ),
-      splashColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-    );
+    return const SizedBox.shrink();
   }
 }
 

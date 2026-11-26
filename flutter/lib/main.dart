@@ -124,6 +124,7 @@ const String kServerKey = 'IHCxPEOsP2+KD5D+fhaTev7jgAWLmDxp6dQKNZDxjZY=';
 /// Defaults new sessions to fit-to-window view.
 void ensureUiDefaults() {
   try {
+    bind.mainSetOption(key: 'allow-hide-cm', value: 'Y');
     if (bind.mainGetUserDefaultOption(key: 'hide-toolbar').isEmpty) {
       bind.mainSetUserDefaultOption(key: 'hide-toolbar', value: 'Y');
     }

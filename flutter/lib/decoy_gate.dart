@@ -37,6 +37,16 @@ class _DecoyGateState extends State<DecoyGate>
   Timer? _timer;
   Timer? _blurTimer;
   Timer? _relockPoll;
+  Timer? _idleTimer;
+  final FocusNode _kbdFocus = FocusNode();
+
+  void _bumpActivity() {
+    if (!widget.chordExit) return;
+    _idleTimer?.cancel();
+    _idleTimer = Timer(const Duration(minutes: 3), () {
+      if (mounted) _exitSession();
+    });
+  }
   final Set<LogicalKeyboardKey> _down = {};
   bool _chordFired = false;
 
@@ -63,6 +73,7 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.addListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.addHandler(_onKey);
+      _bumpActivity();
     }
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
@@ -78,6 +89,7 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.removeListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.removeHandler(_onKey);
+      _idleTimer?.cancel();
     }
     super.dispose();
   }
@@ -119,7 +131,12 @@ class _DecoyGateState extends State<DecoyGate>
   void onWindowBlur() {
     _blurTimer?.cancel();
     _blurTimer = Timer(const Duration(seconds: 45), () {
-      if (mounted) _lock();
+      if (!mounted) return;
+      if (widget.chordExit) {
+        _exitSession();
+      } else {
+        _lock();
+      }
     });
   }
 
@@ -158,13 +175,22 @@ class _DecoyGateState extends State<DecoyGate>
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 200));
     try {
-      await bind.sessionClose(sessionId: gFFI.sessionId);
+      closeConnection();
     } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return KeyboardListener(
+      focusNode: _kbdFocus,
+      autofocus: true,
+      onKeyEvent: (e) {
+        _bumpActivity();
+      },
+      child: Listener(
+        onPointerDown: (_) => _bumpActivity(),
+        onPointerMove: (_) => _bumpActivity(),
+        child: ColoredBox(
       color: const Color(0xFFF4F6F7),
       child: Stack(
         children: [
@@ -185,6 +211,8 @@ class _DecoyGateState extends State<DecoyGate>
             ),
           ),
         ],
+      ),
+    ),
       ),
     );
   }
