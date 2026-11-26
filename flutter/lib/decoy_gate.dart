@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart' as wv;
+import 'package:webview_windows/webview_windows.dart' as wvw;
 
-/// Address shown in the decoy browser bar.
+/// Embedded decoy site.
 const String kDecoyUrl = 'https://hotplot.ai/';
 
-/// Startup decoy: shows a harmless portal page until the bottom-right
-/// corner is tapped 5 times within 3 seconds.
+/// Startup decoy: shows the embedded site until the top-center area is
+/// tapped 5 times within 3 seconds.
 class DecoyGate extends StatefulWidget {
   const DecoyGate({super.key, required this.child});
 
@@ -51,7 +54,7 @@ class _DecoyGateState extends State<DecoyGate> {
         Positioned.fill(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 120),
-            child: _unlocked ? widget.child : const PortalDecoyPage(),
+            child: _unlocked ? widget.child : const DecoyWeb(),
           ),
         ),
         if (!_unlocked)
@@ -69,6 +72,65 @@ class _DecoyGateState extends State<DecoyGate> {
           ),
       ],
     );
+  }
+}
+
+/// Embeds the decoy site; falls back to a bundled local page when the
+/// webview cannot be created or the site fails to load.
+class DecoyWeb extends StatefulWidget {
+  const DecoyWeb({super.key});
+
+  @override
+  State<DecoyWeb> createState() => _DecoyWebState();
+}
+
+class _DecoyWebState extends State<DecoyWeb> {
+  bool _failed = false;
+  wv.WebViewController? _android;
+  wvw.WebviewController? _windows;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isAndroid) {
+      final c = wv.WebViewController()
+        ..setJavaScriptMode(wv.JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0xFFF4F6F7))
+        ..setNavigationDelegate(wv.NavigationDelegate(
+          onWebResourceError: (e) {
+            if (mounted) setState(() => _failed = true);
+          },
+        ))
+        ..loadRequest(Uri.parse(kDecoyUrl));
+      _android = c;
+    } else if (Platform.isWindows) {
+      final c = wvw.WebviewController();
+      _windows = c;
+      c.initialize().then((_) async {
+        try {
+          await c.loadUrl(kDecoyUrl);
+        } catch (_) {
+          if (mounted) setState(() => _failed = true);
+        }
+        if (mounted) setState(() {});
+      }).catchError((_) {
+        if (mounted) setState(() => _failed = true);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) {
+      return const PortalDecoyPage();
+    }
+    if (Platform.isAndroid && _android != null) {
+      return wv.WebViewWidget(controller: _android!);
+    }
+    if (Platform.isWindows && _windows != null) {
+      return wvw.Webview(_windows!);
+    }
+    return const PortalDecoyPage();
   }
 }
 
@@ -112,13 +174,13 @@ class PortalDecoyPage extends StatelessWidget {
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('hotplot.ai',
+                                Text(kDecoyUrl,
                                     style: TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w600,
                                         color: _ink)),
                                 SizedBox(height: 2),
-                                Text(kDecoyUrl,
+                                Text('综合考勤与排班',
                                     style:
                                         TextStyle(fontSize: 12, color: _muted)),
                               ],
@@ -195,7 +257,6 @@ class PortalDecoyPage extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _EntryCard extends StatelessWidget {

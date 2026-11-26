@@ -4227,7 +4227,7 @@ List<String> getPrinterNames() {
   }
 }
 
-const String kAppDisplayName = '考勤工具';
+const String kAppDisplayName = 'hotplot';
 
 String get appName => kAppDisplayName;
 
