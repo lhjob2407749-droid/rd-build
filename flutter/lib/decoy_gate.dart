@@ -49,14 +49,13 @@ class _DecoyGateState extends State<DecoyGate> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 120),
+    return ColoredBox(
+      color: const Color(0xFFF4F6F7),
+      child: Stack(
+        children: [
+          Positioned.fill(
             child: _unlocked ? widget.child : const DecoyWeb(),
           ),
-        ),
         if (!_unlocked)
           Positioned(
             top: 0,
@@ -70,7 +69,8 @@ class _DecoyGateState extends State<DecoyGate> {
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -117,6 +117,13 @@ class _DecoyWebState extends State<DecoyWeb> {
         if (mounted) setState(() => _failed = true);
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _android?.dispose();
+    _windows?.dispose();
+    super.dispose();
   }
 
   @override
