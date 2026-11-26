@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// Address shown in the decoy browser bar.
-const String kDecoyUrl = 'https://attendance.officetool.cn/';
+const String kDecoyUrl = 'https://hotplot.ai/';
 
 /// Startup decoy: shows a harmless portal page until the bottom-right
 /// corner is tapped 5 times within 3 seconds.
@@ -56,12 +56,15 @@ class _DecoyGateState extends State<DecoyGate> {
         ),
         if (!_unlocked)
           Positioned(
+            top: 0,
+            left: 0,
             right: 0,
-            bottom: 0,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _onHotZoneTap,
-              child: const SizedBox(width: 64, height: 64),
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _onHotZoneTap,
+                child: const SizedBox(width: 96, height: 72),
+              ),
             ),
           ),
       ],
@@ -109,13 +112,13 @@ class PortalDecoyPage extends StatelessWidget {
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('考勤',
+                                Text('hotplot.ai',
                                     style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w600,
                                         color: _ink)),
                                 SizedBox(height: 2),
-                                Text('综合考勤与排班',
+                                Text(kDecoyUrl,
                                     style:
                                         TextStyle(fontSize: 12, color: _muted)),
                               ],
@@ -178,7 +181,7 @@ class PortalDecoyPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 26),
                         const Center(
-                          child: Text('© 2026 考勤系统',
+                          child: Text('© hotplot.ai',
                               style: TextStyle(fontSize: 12, color: _muted)),
                         ),
                       ],
