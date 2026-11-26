@@ -220,7 +220,20 @@ class _DecoyGateState extends State<DecoyGate>
       final dir = await getTemporaryDirectory();
       File('${dir.path}/hotplot_relock').writeAsStringSync('1');
     } catch (_) {}
-    await Future.delayed(const Duration(milliseconds: 200));
+    try {
+      final c = Get.find<DesktopTabController>();
+      final tabs = c.state.value.tabs;
+      for (var i = tabs.length - 1; i >= 0; i--) {
+        if (tabs[i].page is RemotePage) {
+          final cb = tabs[i].onTabCloseButton;
+          if (cb != null) {
+            cb();
+          } else {
+            c.remove(i);
+          }
+        }
+      }
+    } catch (_) {}
     try {
       final exit = widget.onExit;
       if (exit != null) {

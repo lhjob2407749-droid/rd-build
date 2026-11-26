@@ -222,6 +222,12 @@ exclude = ["vdi/host"]
 
 # Patch libxdo-sys to use a stub implementation that doesn't require libxdo
 # This allows building and running on systems without libxdo installed (e.g., Wayland-only)
+[patch."https://github.com/rustdesk-org/hwcodec"]
+hwcodec = { path = "_patched/hwcodec" }
+
+[patch."https://github.com/rustdesk-org/kcp-sys"]
+kcp-sys = { path = "_patched/kcp-sys" }
+
 [patch.crates-io]
 libxdo-sys = { path = "libs/libxdo-sys-stub" }
 # Upstream reserves a frame's whole declared length as soon as its header is in, so a header alone
