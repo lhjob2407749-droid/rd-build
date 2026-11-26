@@ -2,6 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:window_manager/window_manager.dart';
+import 'common.dart';
+import 'models/platform_model.dart';
 import 'package:webview_flutter/webview_flutter.dart' as wv;
 import 'package:webview_windows/webview_windows.dart' as wvw;
 
@@ -11,18 +16,29 @@ const String kDecoyUrl = 'https://hotplot.ai/';
 /// Startup decoy: shows the embedded site until the top-center area is
 /// tapped 5 times within 3 seconds.
 class DecoyGate extends StatefulWidget {
-  const DecoyGate({super.key, required this.child});
+  const DecoyGate(
+      {super.key,
+      required this.child,
+      this.unlockedAtStart = false,
+      this.chordExit = false});
 
   final Widget child;
+  final bool unlockedAtStart;
+  final bool chordExit;
 
   @override
   State<DecoyGate> createState() => _DecoyGateState();
 }
 
-class _DecoyGateState extends State<DecoyGate> {
+class _DecoyGateState extends State<DecoyGate>
+    with WidgetsBindingObserver, WindowListener {
   bool _unlocked = false;
   int _taps = 0;
   Timer? _timer;
+  Timer? _blurTimer;
+  Timer? _relockPoll;
+  final Set<LogicalKeyboardKey> _down = {};
+  bool _chordFired = false;
 
   void _onHotZoneTap() {
     if (_unlocked) {
@@ -31,9 +47,7 @@ class _DecoyGateState extends State<DecoyGate> {
     _taps++;
     _timer?.cancel();
     if (_taps >= 5) {
-      setState(() {
-        _unlocked = true;
-      });
+      _unlock();
       return;
     }
     _timer = Timer(const Duration(seconds: 3), () {
@@ -42,9 +56,110 @@ class _DecoyGateState extends State<DecoyGate> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _unlocked = widget.unlockedAtStart;
+    WidgetsBinding.instance.addObserver(this);
+    windowManager.addListener(this);
+    if (widget.chordExit) {
+      HardwareKeyboard.instance.addHandler(_onKey);
+    }
+    if (!widget.unlockedAtStart) {
+      _startRelockPoll();
+    }
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
+    _blurTimer?.cancel();
+    _relockPoll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    windowManager.removeListener(this);
+    if (widget.chordExit) {
+      HardwareKeyboard.instance.removeHandler(_onKey);
+    }
     super.dispose();
+  }
+
+  void _lock() {
+    if (!mounted) return;
+    setState(() {
+      _unlocked = false;
+    });
+    _startRelockPoll();
+  }
+
+  void _unlock() {
+    setState(() {
+      _unlocked = true;
+    });
+  }
+
+  /// main window watches a flag file written by a session window that exited
+  /// via the 4-key chord, so it goes back to the decoy as well.
+  void _startRelockPoll() {
+    _relockPoll?.cancel();
+    _relockPoll = Timer.periodic(const Duration(milliseconds: 1200), (t) async {
+      if (!mounted) return;
+      try {
+        final dir = await getTemporaryDirectory();
+        final f = File('${dir.path}/hotplot_relock');
+        if (await f.exists()) {
+          await f.delete();
+          if (mounted && _unlocked) {
+            _lock();
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
+  @override
+  void onWindowBlur() {
+    _blurTimer?.cancel();
+    _blurTimer = Timer(const Duration(seconds: 45), () {
+      if (mounted) _lock();
+    });
+  }
+
+  @override
+  void onWindowFocus() {
+    _blurTimer?.cancel();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _lock();
+    }
+  }
+
+  bool _onKey(KeyEvent e) {
+    if (e is KeyDownEvent) {
+      _down.add(e.logicalKey);
+      if (!_chordFired && _down.length >= 4) {
+        _chordFired = true;
+        _exitSession();
+      }
+    } else if (e is KeyUpEvent) {
+      _down.remove(e.logicalKey);
+      if (_down.isEmpty) _chordFired = false;
+    }
+    return false;
+  }
+
+  void _exitSession() async {
+    _lock();
+    try {
+      final dir = await getTemporaryDirectory();
+      File('${dir.path}/hotplot_relock').writeAsStringSync('1');
+    } catch (_) {}
+    await Future.delayed(const Duration(milliseconds: 200));
+    try {
+      await bind.sessionClose(sessionId: gFFI.sessionId);
+    } catch (_) {}
   }
 
   @override

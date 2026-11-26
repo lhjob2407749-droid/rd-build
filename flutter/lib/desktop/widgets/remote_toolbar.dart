@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/keyboard_shortcuts/display.dart';
@@ -3009,12 +3010,13 @@ class _CloseMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return _IconMenuButton(
       assetName: 'assets/close.svg',
-      tooltip: 'Close',
+      tooltip: 'Minimize',
       onPressed: () async {
-        if (await showConnEndAuditDialogCloseCanceled(ffi: ffi)) {
-          return;
+        try {
+          await windowManager.minimize();
+        } catch (_) {
+          closeConnection(id: id);
         }
-        closeConnection(id: id);
       },
       color: _ToolbarTheme.redColor,
       hoverColor: _ToolbarTheme.hoverRedColor,

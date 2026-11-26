@@ -124,6 +124,9 @@ const String kServerKey = 'IHCxPEOsP2+KD5D+fhaTev7jgAWLmDxp6dQKNZDxjZY=';
 /// Defaults new sessions to fit-to-window view.
 void ensureUiDefaults() {
   try {
+    if (bind.mainGetUserDefaultOption(key: 'hide-toolbar').isEmpty) {
+      bind.mainSetUserDefaultOption(key: 'hide-toolbar', value: 'Y');
+    }
     if (bind.mainGetUserDefaultOption(key: 'view_style').isEmpty) {
       bind.mainSetUserDefaultOption(key: 'view_style', value: 'adaptive');
     }
@@ -237,8 +240,10 @@ void runMultiWindow(
   switch (appType) {
     case kAppTypeDesktopRemote:
       draggablePositions.load();
-      widget = DesktopRemoteScreen(
-        params: argument,
+      widget = DecoyGate(
+        unlockedAtStart: true,
+        chordExit: true,
+        child: DesktopRemoteScreen(params: argument),
       );
       break;
     case kAppTypeDesktopFileTransfer:

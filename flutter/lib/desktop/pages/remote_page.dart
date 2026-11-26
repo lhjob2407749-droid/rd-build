@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -458,8 +460,22 @@ class _RemotePageState extends State<RemotePage>
   }
 
   @override
+  /// On phone screen lock / backgrounding: end the session and let the home
+  /// page fall back to the decoy view.
+  void _mobileLockExit() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      File('${dir.path}/hotplot_relock').writeAsStringSync('1');
+    } catch (_) {}
+    closeConnection(id: widget.id);
+  }
+
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    if ((isAndroid || isIOS) && state == AppLifecycleState.paused) {
+      _mobileLockExit();
+      return;
+    }
     if (!isMacOS || _macOSLifecycleState == state) return;
     _macOSLifecycleState = state;
     if (state == AppLifecycleState.resumed) {
