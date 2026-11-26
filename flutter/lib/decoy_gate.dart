@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'common.dart';
+import 'package:get/get.dart';
+import 'desktop/widgets/tabbar_widget.dart';
+import 'desktop/pages/remote_page.dart';
+import 'models/state_model.dart';
 import 'models/platform_model.dart';
 import 'package:webview_flutter/webview_flutter.dart' as wv;
 import 'package:webview_windows/webview_windows.dart' as wvw;
@@ -44,7 +48,7 @@ class _DecoyGateState extends State<DecoyGate>
     if (!widget.chordExit) return;
     _idleTimer?.cancel();
     _idleTimer = Timer(const Duration(minutes: 3), () {
-      if (mounted) _exitSession();
+      if (mounted) _exitIfSession();
     });
   }
   final Set<LogicalKeyboardKey> _down = {};
@@ -127,17 +131,33 @@ class _DecoyGateState extends State<DecoyGate>
     });
   }
 
-  @override
+  bool _hasRemoteTab() {
+    try {
+      final c = Get.find<DesktopTabController>();
+      return c.state.value.selectedTabInfo.page is RemotePage;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void onWindowBlur() {
     _blurTimer?.cancel();
     _blurTimer = Timer(const Duration(seconds: 45), () {
       if (!mounted) return;
       if (widget.chordExit) {
-        _exitSession();
+        _exitIfSession();
       } else {
         _lock();
       }
     });
+  }
+
+  void _exitIfSession() {
+    if (_hasRemoteTab()) {
+      _exitSession();
+    } else {
+      _lock();
+    }
   }
 
   @override

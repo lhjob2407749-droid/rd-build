@@ -3008,19 +3008,33 @@ class _CloseMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _IconMenuButton(
-      assetName: 'assets/close.svg',
-      tooltip: 'Minimize',
-      onPressed: () async {
-        try {
-          await windowManager.minimize();
-        } catch (_) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _IconMenuButton(
+        assetName: 'assets/minimize.svg',
+        icon: const Icon(Icons.remove, size: 18, color: Colors.white),
+        tooltip: 'Minimize',
+        onPressed: () async {
+          try {
+            await windowManager.minimize();
+          } catch (_) {}
+        },
+        color: _ToolbarTheme.blueColor,
+        hoverColor: _ToolbarTheme.hoverBlueColor,
+      ),
+      SizedBox(width: 6),
+      _IconMenuButton(
+        assetName: 'assets/close.svg',
+        tooltip: 'Close',
+        onPressed: () async {
+          if (await showConnEndAuditDialogCloseCanceled(ffi: ffi)) {
+            return;
+          }
           closeConnection(id: id);
-        }
-      },
-      color: _ToolbarTheme.redColor,
-      hoverColor: _ToolbarTheme.hoverRedColor,
-    );
+        },
+        color: _ToolbarTheme.redColor,
+        hoverColor: _ToolbarTheme.hoverRedColor,
+      ),
+    ]);
   }
 }
 

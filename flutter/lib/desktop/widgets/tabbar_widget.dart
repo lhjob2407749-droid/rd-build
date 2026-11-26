@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
+import '../../decoy_gate.dart';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -561,7 +562,19 @@ class _DesktopTabState extends State<DesktopTab>
         child: Obx(() => PageView(
             controller: state.value.pageController,
             physics: NeverScrollableScrollPhysics(),
-            children: () {
+            children: _tabChildren())));
+    if (tabType == DesktopTabType.remoteScreen) {
+      return DecoyGate(
+          unlockedAtStart: true,
+          chordExit: true,
+          child: Container(color: kColorCanvas, child: child));
+    } else {
+      return DecoyGate(
+          unlockedAtStart: true, chordExit: true, child: child);
+    }
+  }
+
+  List<Widget> _tabChildren() {
               if (DesktopTabType.cm == tabType) {
                 // Fix when adding a new tab still showing closed tabs with the same peer id, which would happen after the DesktopTab was stateful.
                 return state.value.tabs.map((tab) {
@@ -587,12 +600,6 @@ class _DesktopTabState extends State<DesktopTab>
                 _tabWidgets = newList;
                 return newList;
               }
-            }())));
-    if (tabType == DesktopTabType.remoteScreen) {
-      return Container(color: kColorCanvas, child: child);
-    } else {
-      return child;
-    }
   }
 
   /// Check whether to show ListView
