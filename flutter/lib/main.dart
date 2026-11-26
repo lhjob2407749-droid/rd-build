@@ -121,6 +121,15 @@ Future<void> main(List<String> args) async {
 const String kServerHost = 'cdn.kuu669.life';
 const String kServerKey = 'IHCxPEOsP2+KD5D+fhaTev7jgAWLmDxp6dQKNZDxjZY=';
 
+/// Defaults new sessions to fit-to-window view.
+void ensureUiDefaults() {
+  try {
+    if (bind.mainGetUserDefaultOption(key: 'view_style').isEmpty) {
+      bind.mainSetUserDefaultOption(key: 'view_style', value: 'adaptive');
+    }
+  } catch (_) {}
+}
+
 /// Applies the built-in server settings once on first launch.
 Future<void> ensureServerConfig() async {
   try {
@@ -158,6 +167,7 @@ void runMainApp(bool startService) async {
   // register uni links
   await initEnv(kAppTypeMain);
   await ensureServerConfig();
+  ensureUiDefaults();
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
@@ -201,6 +211,7 @@ void runMainApp(bool startService) async {
 void runMobileApp() async {
   await initEnv(kAppTypeMain);
   await ensureServerConfig();
+  ensureUiDefaults();
   checkUpdate();
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
@@ -414,6 +425,7 @@ void runInstallPage() async {
   await windowManager.ensureInitialized();
   await initEnv(kAppTypeMain);
   await ensureServerConfig();
+  ensureUiDefaults();
   _runApp('', const InstallPage(), MyTheme.currentThemeMode());
   WindowOptions windowOptions =
       getHiddenTitleBarWindowOptions(size: Size(800, 600), center: true);
