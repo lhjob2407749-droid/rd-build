@@ -84,8 +84,7 @@ class _DecoyGateState extends State<DecoyGate>
     if (_tmpPath.isEmpty) return;
     try {
       File('$_tmpPath/hotplot_dbg.log').writeAsStringSync(
-          '${DateTime.now().millisecondsSinceEpoch} $msg
-',
+          '${DateTime.now().millisecondsSinceEpoch} $msg\n',
           mode: FileMode.append);
     } catch (_) {}
   }
