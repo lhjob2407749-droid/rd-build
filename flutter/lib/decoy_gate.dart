@@ -137,7 +137,7 @@ class _DecoyGateState extends State<DecoyGate>
           final nowMs = DateTime.now().millisecondsSinceEpoch;
           if (locked &&
               !_wasLocked &&
-              nowMs - _lastUnlockMs > 2000) {
+              nowMs - _lastUnlockMs > 4000) {
             _wasLocked = true;
             _lockOnResume = true;
             if (mounted) {
