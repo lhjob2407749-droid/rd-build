@@ -295,6 +295,7 @@ class _DecoyGateState extends State<DecoyGate>
       }
     } catch (_) {}
 
+    var closedTab = false;
     try {
       final c = Get.find<DesktopTabController>();
       final tabs = c.state.value.tabs;
@@ -306,17 +307,15 @@ class _DecoyGateState extends State<DecoyGate>
           } else {
             c.remove(i);
           }
+          closedTab = true;
         }
       }
     } catch (_) {}
-    try {
-      final exit = widget.onExit;
-      if (exit != null) {
-        exit();
-      } else {
+    if (closedTab) {
+      try {
         closeConnection();
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
     if (quit && Platform.isWindows && kWindowId == null) {
       try {
         await windowManager.setPreventClose(false);
@@ -346,12 +345,39 @@ class _DecoyGateState extends State<DecoyGate>
           ),
         if (!_unlocked)
           Positioned(
-            top: 2,
+            top: 1,
             right: 2,
             child: _WindowButtons(),
           ),
-        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+        if (!_unlocked)
           Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFC3CBD3), width: 1),
+                ),
+              ),
+            ),
+          ),
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+          Positioned(
+            left: 0, right: 0, top: 0, height: 30,
+            child: Container(
+              color: const Color(0xFFE9EDF1),
+              child: Row(children: [
+                const SizedBox(width: 10),
+                const Icon(Icons.dashboard_rounded,
+                    size: 16, color: Color(0xFF1FA6A0)),
+                const SizedBox(width: 6),
+                const Text('hotplot',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF4A5560))),
+                const Spacer(),
+              ]),
+            ),
+          ),
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+          Positioned(
+            left: 0, right: 80, top: 0, height: 30,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (_) {
