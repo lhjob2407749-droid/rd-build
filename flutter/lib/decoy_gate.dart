@@ -429,7 +429,7 @@ class _DecoyGateState extends State<DecoyGate>
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.only(
-                  top: ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
+                  top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
                       ? 30
                       : 0),
               child: Listener(
@@ -460,7 +460,7 @@ class _DecoyGateState extends State<DecoyGate>
               ),
             ),
           ),
-        if ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
           Positioned(
             left: 0, right: 0, top: 0, height: 30,
             child: Container(
@@ -478,7 +478,7 @@ class _DecoyGateState extends State<DecoyGate>
               ]),
             ),
           ),
-        if ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
           Positioned(
             left: 0, right: 120, top: 0, height: 30,
             child: GestureDetector(
@@ -511,6 +511,12 @@ class _DecoyGateState extends State<DecoyGate>
                 } catch (_) {}
               },
             ),
+          ),
+        if (_unlocked && widget.closeWindowOnExit)
+          Positioned(
+            top: 1,
+            right: 2,
+            child: _WindowButtons(),
           ),
         if (!_unlocked)
           Positioned(
