@@ -301,6 +301,10 @@ void runMainApp(bool startService) async {
         unawaited(_forceForegroundOnce());
         Future.delayed(const Duration(milliseconds: 700), _forceForegroundOnce);
         Future.delayed(const Duration(milliseconds: 2000), _forceForegroundOnce);
+        Future.delayed(const Duration(milliseconds: 3200), () {
+          windowManager.setAlwaysOnTop(false).catchError((_) {});
+          clearTopmostOnce();
+        });
       }
     }
     windowManager.setOpacity(1);

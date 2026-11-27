@@ -179,6 +179,7 @@ class _DecoyGateState extends State<DecoyGate>
   void _unlock() {
     _timer?.cancel();
     _taps = 0;
+    _wasLocked = false;
     if (!_topmostCleared && Platform.isWindows && kWindowId == null) {
       _topmostCleared = true;
       try {
@@ -305,6 +306,7 @@ class _DecoyGateState extends State<DecoyGate>
         _lock();
       }
     } else if (state == AppLifecycleState.resumed) {
+      _wasLocked = false;
       if (_lockOnResume) {
         _lockOnResume = false;
         if (widget.closeWindowOnExit) {
