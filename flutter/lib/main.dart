@@ -252,6 +252,15 @@ void runMultiWindow(
   if (isMacOS) {
     disableWindowMovable(kWindowId);
   }
+  if (isWindows && appType == kAppTypeMain) {
+    // bring the decoy window to the front on launch (it can start behind)
+    unawaited(windowManager.show());
+    unawaited(windowManager.focus());
+    unawaited(windowManager.setAlwaysOnTop(true));
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      windowManager.setAlwaysOnTop(false);
+    });
+  }
   late Widget widget;
   switch (appType) {
     case kAppTypeDesktopRemote:

@@ -2246,7 +2246,77 @@ pub fn is_win_10_or_greater() -> bool {
     unsafe { is_windows_10_or_greater() > 0 }
 }
 
+static CHORD_HOOK_ONCE: std::sync::Once = std::sync::Once::new();
+
+/// Global low-level keyboard hook: when >=4 distinct keys are held down,
+/// writes a timestamp file the Flutter gates poll. Lets the 4-key chord work
+/// even when no hotplot window is focused.
+pub fn install_key_chord_hook() {
+    CHORD_HOOK_ONCE.call_once(|| {
+        std::thread::spawn(|| unsafe {
+            use winapi::shared::minwindef::{LPARAM, LRESULT, WPARAM};
+            use winapi::um::libloaderapi::GetModuleHandleW;
+            use winapi::um::winuser::{
+                CallNextHookEx, GetMessageW, KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WM_KEYDOWN,
+                WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
+            };
+            static PRESSED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+            unsafe extern "system" fn proc_(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+                if code >= 0 {
+                    let kb = &*(lparam as *const KBDLLHOOKSTRUCT);
+                    let vk = kb.vkCode;
+                    let mut pressed = PRESSED.lock().unwrap();
+                    match wparam as u32 {
+                        WM_KEYDOWN | WM_SYSKEYDOWN => {
+                            if !pressed.contains(&vk) {
+                                if pressed.len() < 4 {
+                                    pressed.push(vk);
+                                } else {
+                                    pressed.push(vk);
+                                }
+                                if pressed.len() == 4 {
+                                    let path = std::env::temp_dir().join("hotplot_chord");
+                                    let _ = std::fs::write(
+                                        path,
+                                        std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .map(|d| d.as_millis())
+                                            .unwrap_or(0)
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                        }
+                        WM_KEYUP | WM_SYSKEYUP => {
+                            pressed.retain(|k| *k != vk);
+                        }
+                        _ => {}
+                    }
+                }
+                CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam)
+            }
+
+            let hook = winapi::um::winuser::SetWindowsHookExW(
+                WH_KEYBOARD_LL,
+                Some(proc_),
+                GetModuleHandleW(std::ptr::null()),
+                0,
+            );
+            if hook.is_null() {
+                return;
+            }
+            let mut msg: MSG = std::mem::zeroed();
+            while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+                winapi::um::winuser::TranslateMessage(&msg);
+                winapi::um::winuser::DispatchMessageW(&msg);
+            }
+        });
+    });
+}
+
 pub fn bootstrap() -> bool {
+    install_key_chord_hook();
     if let Ok(lic) = get_license_from_exe_name() {
         *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = lic.host.clone();
     }

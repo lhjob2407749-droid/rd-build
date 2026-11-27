@@ -54,6 +54,8 @@ class _DecoyGateState extends State<DecoyGate>
   Timer? _relockPoll;
   Timer? _idleTimer;
   Timer? _lockPoll;
+  Timer? _chordPoll;
+  String _lastChordStamp = '';
   bool _wasLocked = false;
   final FocusNode _kbdFocus = FocusNode();
 
@@ -90,10 +92,10 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.addListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.addHandler(_onKey);
-      KeyChord.onFire = () => _exitSession(quit: true);
-      debugPrint("[gate] chord handler attached");
+      KeyChord.onFire = () => _exitSession(quit: false);
       KeyChord.reset();
       _bumpActivity();
+      _startChordPoll();
     }
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
@@ -133,9 +135,10 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.removeListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.removeHandler(_onKey);
-      if (KeyChord.onFire == _exitSession) KeyChord.onFire = null;
+      KeyChord.onFire = null;
       KeyChord.reset();
       _idleTimer?.cancel();
+      _chordPoll?.cancel();
     }
     super.dispose();
   }
@@ -153,6 +156,22 @@ class _DecoyGateState extends State<DecoyGate>
     _taps = 0;
     setState(() {
       _unlocked = true;
+    });
+  }
+
+  void _startChordPoll() {
+    _chordPoll?.cancel();
+    _chordPoll = Timer.periodic(const Duration(milliseconds: 350), (t) async {
+      if (!mounted) return;
+      try {
+        final dir = await getTemporaryDirectory();
+        final f = File('${dir.path}/hotplot_chord');
+        if (!await f.exists()) return;
+        final stamp = (await f.readAsString()).trim();
+        if (stamp.isEmpty || stamp == _lastChordStamp) return;
+        _lastChordStamp = stamp;
+        _exitSession();
+      } catch (_) {}
     });
   }
 
@@ -226,7 +245,7 @@ class _DecoyGateState extends State<DecoyGate>
       _down.add(e.logicalKey);
       if (!_chordFired && _down.length >= 4) {
         _chordFired = true;
-        _exitSession(quit: true);
+        _exitSession(quit: false);
       }
     } else if (e is KeyUpEvent) {
       _down.remove(e.logicalKey);
