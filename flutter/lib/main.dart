@@ -97,6 +97,18 @@ public class NTX {
   }
 }
 
+
+Future<void> hotplotShowMain() async {
+  try {
+    await windowManager.show();
+    await windowManager.focus();
+    await windowManager.setAlwaysOnTop(true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      windowManager.setAlwaysOnTop(false);
+    });
+  } catch (_) {}
+  DecoyGate.lockMain();
+}
 Future<void> main(List<String> args) async {
   earlyAssert();
   WidgetsFlutterBinding.ensureInitialized();
@@ -207,6 +219,13 @@ void ensureUiDefaults() {
     if (bind.mainGetUserDefaultOption(key: 'view_style').isEmpty) {
       bind.mainSetUserDefaultOption(key: 'view_style', value: 'adaptive');
     }
+    // single-window UX: always open sessions as tabs
+    try {
+      if (mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs)) {
+        unawaited(bind.mainSetLocalOption(
+            key: kOptionOpenNewConnInTabs, value: 'N'));
+      }
+    } catch (_) {}
   } catch (_) {}
 }
 

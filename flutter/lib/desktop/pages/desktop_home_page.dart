@@ -9,6 +9,7 @@ import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
@@ -793,6 +794,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     }
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      if (call.method == 'hotplot_show') {
+        hotplotShowMain();
+        return null;
+      }
       if (!isChattyMethod(call.method)) {
         debugPrint(
           "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");

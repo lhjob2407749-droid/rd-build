@@ -260,12 +260,6 @@ class RustDeskMultiWindowManager {
     bool openInTabs = type != WindowType.RemoteDesktop ||
         mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs);
 
-    // main window yields to the session window
-    if (!openInTabs && kWindowId == null) {
-      try {
-        await windowManager.hide();
-      } catch (_) {}
-    }
 
     if (windows.length > 1 || !openInTabs) {
       final stale = <int>[];
@@ -287,6 +281,12 @@ class RustDeskMultiWindowManager {
       }
     }
 
+    // main window yields to the session window (kept alive, hidden)
+    if (!openInTabs && kWindowId == null) {
+      try {
+        await windowManager.hide();
+      } catch (_) {}
+    }
     return _newSession(openInTabs, type, methodName, remoteId, windows, msg);
   }
 

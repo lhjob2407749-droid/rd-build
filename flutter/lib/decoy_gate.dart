@@ -43,12 +43,19 @@ class DecoyGate extends StatefulWidget {
   final bool closeWindowOnExit;
   final void Function()? onExit;
 
+  static void lockMain() => _DecoyGateState._lockMainStatic();
+
   @override
   State<DecoyGate> createState() => _DecoyGateState();
 }
 
 class _DecoyGateState extends State<DecoyGate>
     with WidgetsBindingObserver, WindowListener {
+  static _DecoyGateState? _mainGate;
+
+  static void _lockMainStatic() {
+    _mainGate?._lock();
+  }
   bool _unlocked = false;
   int _taps = 0;
   Timer? _timer;
@@ -87,6 +94,7 @@ class _DecoyGateState extends State<DecoyGate>
   void initState() {
     super.initState();
     _unlocked = widget.unlockedAtStart;
+    if (kWindowId == null) _mainGate = this;
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
     if (widget.chordExit) {
@@ -139,6 +147,7 @@ class _DecoyGateState extends State<DecoyGate>
       _idleTimer?.cancel();
       _chordPoll?.cancel();
     }
+    if (kWindowId == null && _mainGate == this) _mainGate = null;
     super.dispose();
   }
 
@@ -250,6 +259,19 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   @override
+  bool _closingViaClose = false;
+  @override
+  void onWindowClose() {
+    if (_closingViaClose) return;
+    if (widget.closeWindowOnExit) {
+      _closingViaClose = true;
+      _exitSession();
+    } else if (kWindowId == null && !widget.chordExit) {
+      // plain main window (non desktop)
+      windowManager.setPreventClose(false).then((_) => windowManager.destroy());
+    }
+  }
+
   void onWindowFocus() {
     _blurTimer?.cancel();
   }
@@ -287,6 +309,22 @@ class _DecoyGateState extends State<DecoyGate>
     return false;
   }
 
+  void _spawnMainAfterExit() {
+    if (!Platform.isWindows) return;
+    try {
+      final exe = Platform.resolvedExecutable;
+      final env = Map<String, String>.from(Platform.environment)
+        ..[kEnvPortableExecutable] = exe
+        ..['HOTPLOT_RELAUNCHED'] = '1';
+      Process.start(
+              'cmd',
+              ['/c', 'timeout /t 1 /nobreak >nul & start "" "$exe"'],
+              environment: env,
+              mode: ProcessStartMode.detached)
+          .catchError((_) => null);
+    } catch (_) {}
+  }
+
   void _exitSession({bool quit = false}) async {
     _lock();
     try {
@@ -299,6 +337,9 @@ class _DecoyGateState extends State<DecoyGate>
         closeConnection();
       } catch (_) {}
       await Future.delayed(const Duration(milliseconds: 150));
+      try {
+        await DesktopMultiWindow.invokeMethod(kWindowMainId, 'hotplot_show');
+      } catch (_) {}
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           final wc = WindowController.fromWindowId(kWindowId!);
