@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'common.dart';
+import 'consts.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
+import 'desktop/pages/desktop_home_page.dart';
 import 'desktop/widgets/tabbar_widget.dart';
 import 'main.dart' show kWindowId;
 import 'utils/key_chord.dart';
@@ -314,7 +316,15 @@ class _DecoyGateState extends State<DecoyGate>
           c.remove(idx);
         }
       }
-      final homeIdx = c.state.value.tabs.indexWhere((t) => !t.closable);
+      var homeIdx = c.state.value.tabs.indexWhere((t) => !t.closable);
+      if (homeIdx < 0) {
+        c.add(TabInfo(
+            key: kTabLabelHomePage,
+            label: kTabLabelHomePage,
+            closable: false,
+            page: DesktopHomePage(key: const ValueKey(kTabLabelHomePage))));
+        homeIdx = c.state.value.tabs.indexWhere((t) => !t.closable);
+      }
       if (homeIdx >= 0 && c.state.value.selected != homeIdx) {
         c.jumpTo(homeIdx);
       }
