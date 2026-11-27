@@ -375,9 +375,6 @@ class _DecoyGateState extends State<DecoyGate>
         } catch (_) {}
         await Future.delayed(const Duration(milliseconds: 250));
       }
-      try {
-        Process.runSync('taskkill', ['/f', '/im', 'hotplot.exe']);
-      } catch (_) {}
       exit(0);
     }
 
