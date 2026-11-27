@@ -78,6 +78,17 @@ class _DecoyGateState extends State<DecoyGate>
   int _chordStartMs = 0;
   bool _wasLocked = false;
   int _lastUnlockMs = 0;
+  String _tmpPath = '';
+
+  void _dbg(String msg) {
+    if (_tmpPath.isEmpty) return;
+    try {
+      File('$_tmpPath/hotplot_dbg.log').writeAsStringSync(
+          '${DateTime.now().millisecondsSinceEpoch} $msg
+',
+          mode: FileMode.append);
+    } catch (_) {}
+  }
   final FocusNode _kbdFocus = FocusNode();
 
   void _bumpActivity() {
@@ -107,6 +118,13 @@ class _DecoyGateState extends State<DecoyGate>
     super.initState();
     _unlocked = widget.unlockedAtStart;
     if (kWindowId == null) _mainGate = this;
+    getTemporaryDirectory().then((d) {
+      _tmpPath = d.path;
+      try {
+        final f = File('/hotplot_dbg.log');
+        if (f.existsSync()) f.deleteSync();
+      } catch (_) {}
+    });
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
     if (widget.chordExit) {
@@ -178,7 +196,7 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void _lock() {
-    debugPrint('[lock]');
+    _dbg('LOCK()');
     _down.clear();
     _chordFired = false;
     KeyChord.reset();
@@ -196,6 +214,7 @@ class _DecoyGateState extends State<DecoyGate>
 
   bool _topmostCleared = false;
   void _unlock() {
+    _dbg('UNLOCK()');
     _timer?.cancel();
     _taps = 0;
     _wasLocked = false;
@@ -243,6 +262,7 @@ class _DecoyGateState extends State<DecoyGate>
         if (ts <= _wtsStartMs) return;
         _wtsStartMs = ts;
         if (parts[0] == 'lock') {
+          _dbg('WTS lock');
           _wasLocked = true;
           _lockOnResume = true;
           _down.clear();
@@ -256,6 +276,7 @@ class _DecoyGateState extends State<DecoyGate>
             _lock();
           }
         } else if (parts[0] == 'unlock') {
+          _dbg('WTS unlock');
           _wasLocked = false;
           _lockOnResume = false;
           _lastUnlockMs = DateTime.now().millisecondsSinceEpoch;
@@ -370,6 +391,7 @@ class _DecoyGateState extends State<DecoyGate>
   @override
   bool _lockOnResume = false;
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _dbg('lifecycle $state resume=$_lockOnResume');
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (!Platform.isWindows || !(widget.chordExit || widget.closeWindowOnExit)) {
@@ -394,10 +416,12 @@ class _DecoyGateState extends State<DecoyGate>
 
     if (e is KeyDownEvent) {
       final now = DateTime.now().millisecondsSinceEpoch;
+      _dbg('keydown ${e.logicalKey.debugName} down=${_down.length} fired=$_chordFired unlocked=$_unlocked');
       _down.removeWhere((_, ts) => now - ts > 800);
       _down[e.logicalKey] = now;
       if (!_chordFired && _down.length >= 4) {
         _chordFired = true;
+        _dbg('CHORD fired down=${_down.length}');
         _exitSession(quit: false);
       }
     } else if (e is KeyUpEvent) {
@@ -424,6 +448,7 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void _exitSession({bool quit = false}) async {
+    _dbg('EXITSESSION quit=$quit closeWin=$widget.closeWindowOnExit');
     _lock();
     try {
       final dir = await getTemporaryDirectory();
