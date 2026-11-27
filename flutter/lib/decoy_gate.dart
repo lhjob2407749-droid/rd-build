@@ -429,7 +429,7 @@ class _DecoyGateState extends State<DecoyGate>
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.only(
-                  top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
+                  top: ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
                       ? 30
                       : 0),
               child: Listener(
@@ -460,7 +460,7 @@ class _DecoyGateState extends State<DecoyGate>
               ),
             ),
           ),
-        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+        if ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
           Positioned(
             left: 0, right: 0, top: 0, height: 30,
             child: Container(
@@ -478,7 +478,7 @@ class _DecoyGateState extends State<DecoyGate>
               ]),
             ),
           ),
-        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+        if ((!_unlocked || widget.closeWindowOnExit) && (Platform.isWindows || Platform.isLinux))
           Positioned(
             left: 0, right: 120, top: 0, height: 30,
             child: GestureDetector(
@@ -833,6 +833,10 @@ class _WindowButtons extends StatelessWidget {
               try {
                 final dir = await getTemporaryDirectory();
                 File('${dir.path}/hotplot_relock').writeAsStringSync('1');
+              } catch (_) {}
+              try {
+                await DesktopMultiWindow.invokeMethod(
+                    kWindowMainId, 'hotplot_show');
               } catch (_) {}
               final wc = WindowController.fromWindowId(kWindowId!);
               await wc.setPreventClose(false);
