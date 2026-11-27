@@ -77,6 +77,7 @@ class _DecoyGateState extends State<DecoyGate>
   int _wtsStartMs = 0;
   int _chordStartMs = 0;
   bool _wasLocked = false;
+  int _lastUnlockMs = 0;
   final FocusNode _kbdFocus = FocusNode();
 
   void _bumpActivity() {
@@ -116,6 +117,14 @@ class _DecoyGateState extends State<DecoyGate>
       _startChordPoll();
       _startWtsPoll();
     }
+    if (kWindowId == null) {
+      getTemporaryDirectory().then((d) {
+        try {
+          final f = File('${d.path}/hotplot_relock');
+          if (f.existsSync()) f.deleteSync();
+        } catch (_) {}
+      });
+    }
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
     }
@@ -125,7 +134,10 @@ class _DecoyGateState extends State<DecoyGate>
           final r = await Process.run(
               'tasklist', ['/fi', 'IMAGENAME eq LogonUI.exe', '/nh']);
           final locked = (r.stdout as String).contains('LogonUI.exe');
-          if (locked && !_wasLocked) {
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          if (locked &&
+              !_wasLocked &&
+              nowMs - _lastUnlockMs > 2000) {
             _wasLocked = true;
             _lockOnResume = true;
             if (mounted) {
@@ -184,6 +196,7 @@ class _DecoyGateState extends State<DecoyGate>
     _timer?.cancel();
     _taps = 0;
     _wasLocked = false;
+    _lockOnResume = false;
     if (!_topmostCleared && Platform.isWindows && kWindowId == null) {
       _topmostCleared = true;
       try {
@@ -235,6 +248,8 @@ class _DecoyGateState extends State<DecoyGate>
           }
         } else if (parts[0] == 'unlock') {
           _wasLocked = false;
+          _lockOnResume = false;
+          _lastUnlockMs = DateTime.now().millisecondsSinceEpoch;
         }
       } catch (_) {}
     });
@@ -351,6 +366,7 @@ class _DecoyGateState extends State<DecoyGate>
 
     } else if (state == AppLifecycleState.resumed) {
       _wasLocked = false;
+      _lastUnlockMs = DateTime.now().millisecondsSinceEpoch;
       if (_lockOnResume) {
         _lockOnResume = false;
         if (widget.closeWindowOnExit) {
