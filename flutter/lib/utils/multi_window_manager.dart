@@ -1,10 +1,15 @@
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter_hbb/desktop/pages/remote_page.dart';
+import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
+import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
+import 'package:flutter_hbb/decoy_gate.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/main.dart';
@@ -281,13 +286,54 @@ class RustDeskMultiWindowManager {
       }
     }
 
-    // main window yields to the session window (kept alive, hidden)
-    if (!openInTabs && kWindowId == null) {
-      try {
-        await windowManager.hide();
-      } catch (_) {}
+    // remote sessions are always tabs in the single main window
+    if (type == WindowType.RemoteDesktop && kWindowId == null) {
+      return _openRemoteInMainTab(
+        remoteId,
+        password: password,
+        loginMethod: loginMethod,
+        isSharedPassword: isSharedPassword,
+        forceRelay: forceRelay,
+        switchUuid: switchUuid,
+      );
     }
     return _newSession(openInTabs, type, methodName, remoteId, windows, msg);
+  }
+
+
+  Future<MultiWindowCallResult> _openRemoteInMainTab(
+    String id, {
+    String? password,
+    String loginMethod = '',
+    bool? isSharedPassword,
+    bool? forceRelay,
+    String? switchUuid,
+  }) async {
+    final c = Get.find<DesktopTabController>();
+    final existing = c.state.value.tabs.indexWhere((t) => t.key == id);
+    if (existing >= 0) {
+      c.jumpTo(existing);
+      return MultiWindowCallResult(kWindowMainId, null);
+    }
+    c.add(TabInfo(
+      key: id,
+      label: id,
+      selectedIcon: Icons.desktop_windows_sharp,
+      unselectedIcon: Icons.desktop_windows_outlined,
+      onTabCloseButton: () => c.closeBy(id),
+      page: RemotePage(
+        key: ValueKey(id),
+        id: id,
+        password: password,
+        loginMethod: loginMethod,
+        toolbarState: ToolbarState(),
+        tabController: c,
+        switchUuid: switchUuid,
+        forceRelay: forceRelay,
+        isSharedPassword: isSharedPassword,
+      ),
+    ));
+    return MultiWindowCallResult(kWindowMainId, null);
   }
 
   Future<MultiWindowCallResult> newRemoteDesktop(

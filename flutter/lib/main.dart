@@ -84,9 +84,8 @@ Future<void> hotplotShowMain() async {
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setAlwaysOnTop(true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      windowManager.setAlwaysOnTop(false);
-    });
+    Future.delayed(const Duration(milliseconds: 800), clearTopmostOnce);
+    Future.delayed(const Duration(milliseconds: 1600), clearTopmostOnce);
   } catch (_) {}
   DecoyGate.lockMain();
 }
@@ -203,9 +202,9 @@ void ensureUiDefaults() {
     }
     // single-window UX: always open sessions as tabs
     try {
-      if (mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs)) {
+      if (!mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs)) {
         unawaited(bind.mainSetLocalOption(
-            key: kOptionOpenNewConnInTabs, value: 'N'));
+            key: kOptionOpenNewConnInTabs, value: 'Y'));
       }
     } catch (_) {}
   } catch (_) {}

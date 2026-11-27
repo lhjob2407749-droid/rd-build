@@ -11,7 +11,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
 import 'desktop/pages/desktop_home_page.dart';
 import 'desktop/widgets/tabbar_widget.dart';
-import 'main.dart' show kWindowId, clearTopmostOnce;
+import 'main.dart' show kWindowId, clearTopmostOnce, globalKey;
 import 'utils/key_chord.dart';
 import 'utils/multi_window_manager.dart';
 import 'desktop/pages/remote_page.dart';
@@ -45,6 +45,8 @@ class DecoyGate extends StatefulWidget {
 
   static void lockMain() => _DecoyGateState._lockMainStatic();
 
+  static void suppressNextHidden() => _DecoyGateState._suppressHidden = true;
+
   @override
   State<DecoyGate> createState() => _DecoyGateState();
 }
@@ -52,9 +54,16 @@ class DecoyGate extends StatefulWidget {
 class _DecoyGateState extends State<DecoyGate>
     with WidgetsBindingObserver, WindowListener {
   static _DecoyGateState? _mainGate;
+  static bool _suppressHidden = false;
 
   static void _lockMainStatic() {
     _mainGate?._lock();
+  }
+
+  /// Called right before the main window hides itself to open a session:
+  /// the resulting hidden event must only lock, not close the new session.
+  static void suppressNextHidden() {
+    _suppressHidden = true;
   }
   bool _unlocked = false;
   int _taps = 0;
@@ -64,6 +73,8 @@ class _DecoyGateState extends State<DecoyGate>
   Timer? _idleTimer;
   Timer? _lockPoll;
   Timer? _chordPoll;
+  Timer? _wtsPoll;
+  int _wtsStartMs = 0;
   int _chordStartMs = 0;
   bool _wasLocked = false;
   final FocusNode _kbdFocus = FocusNode();
@@ -103,21 +114,13 @@ class _DecoyGateState extends State<DecoyGate>
       KeyChord.reset();
       _bumpActivity();
       _startChordPoll();
+      _startWtsPoll();
     }
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
-      if (Platform.isWindows && kWindowId == null) {
-        for (final ms in [150, 800, 2000, 4000]) {
-          Future.delayed(Duration(milliseconds: ms), () {
-            try {
-              windowManager.setAlwaysOnTop(true);
-            } catch (_) {}
-          });
-        }
-      }
     }
     if (Platform.isWindows) {
-      _lockPoll = Timer.periodic(const Duration(milliseconds: 700), (_) async {
+      _lockPoll = Timer.periodic(const Duration(milliseconds: 1500), (_) async {
         try {
           final r = await Process.run(
               'tasklist', ['/fi', 'IMAGENAME eq LogonUI.exe', '/nh']);
@@ -156,6 +159,7 @@ class _DecoyGateState extends State<DecoyGate>
       KeyChord.reset();
       _idleTimer?.cancel();
       _chordPoll?.cancel();
+      _wtsPoll?.cancel();
     }
     if (kWindowId == null && _mainGate == this) _mainGate = null;
     super.dispose();
@@ -189,6 +193,50 @@ class _DecoyGateState extends State<DecoyGate>
     }
     setState(() {
       _unlocked = true;
+    });
+    final auto = Platform.environment['HP_TEST_CONNECT'];
+    if (auto != null && auto.contains(',') && kWindowId == null) {
+      final parts = auto.split(',');
+      Future.delayed(const Duration(milliseconds: 400), () {
+        try {
+          connect(globalKey.currentContext!, parts[0], password: parts[1]);
+        } catch (e) {
+          debugPrint('[autoconnect] $e');
+        }
+      });
+    }
+  }
+
+
+  void _startWtsPoll() {
+    _wtsPoll?.cancel();
+    _wtsStartMs = DateTime.now().millisecondsSinceEpoch;
+    _wtsPoll = Timer.periodic(const Duration(milliseconds: 300), (t) async {
+      if (!mounted) return;
+      try {
+        final dir = await getTemporaryDirectory();
+        final f = File('${dir.path}/hotplot_lock_evt');
+        if (!await f.exists()) return;
+        final raw = (await f.readAsString()).trim();
+        final parts = raw.split(':');
+        if (parts.length != 2) return;
+        final ts = int.tryParse(parts[1]) ?? 0;
+        if (ts <= _wtsStartMs) return;
+        _wtsStartMs = ts;
+        if (parts[0] == 'lock') {
+          _wasLocked = true;
+          _lockOnResume = true;
+          if (widget.closeWindowOnExit) {
+            _exitSession();
+          } else if (widget.chordExit) {
+            _exitIfSession();
+          } else {
+            _lock();
+          }
+        } else if (parts[0] == 'unlock') {
+          _wasLocked = false;
+        }
+      } catch (_) {}
     });
   }
 
@@ -297,14 +345,10 @@ class _DecoyGateState extends State<DecoyGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (Platform.isWindows &&
-          (widget.chordExit || widget.closeWindowOnExit)) {
-        // hidden == lock or screen off; act immediately, no async probing
-        _lockOnResume = true;
-        _exitIfSession();
-      } else {
+      if (!Platform.isWindows || !(widget.chordExit || widget.closeWindowOnExit)) {
         _lock();
       }
+
     } else if (state == AppLifecycleState.resumed) {
       _wasLocked = false;
       if (_lockOnResume) {

@@ -2306,6 +2306,77 @@ pub fn install_key_chord_hook() {
             if hook.is_null() {
                 return;
             }
+
+            // WTS session lock/unlock events (authoritative; minimize does not fire)
+            unsafe extern "system" fn wnd_proc(
+                hwnd: winapi::shared::windef::HWND,
+                msg: u32,
+                wparam: winapi::shared::minwindef::WPARAM,
+                lparam: winapi::shared::minwindef::LPARAM,
+            ) -> winapi::shared::minwindef::LRESULT {
+                use winapi::um::winuser::{WTS_SESSION_LOCK, WTS_SESSION_UNLOCK};
+                if msg == winapi::um::winuser::WM_WTSSESSION_CHANGE {
+                    let kind = if wparam == WTS_SESSION_LOCK {
+                        Some("lock")
+                    } else if wparam == WTS_SESSION_UNLOCK {
+                        Some("unlock")
+                    } else {
+                        None
+                    };
+                    if let Some(kind) = kind {
+                        let path = std::env::temp_dir().join("hotplot_lock_evt");
+                        let ts = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis())
+                            .unwrap_or(0);
+                        let _ = std::fs::write(path, format!("{}:{}", kind, ts));
+                    }
+                }
+                winapi::um::winuser::DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+
+            {
+                use winapi::um::libloaderapi::GetModuleHandleW as _;
+                use winapi::um::winuser::{
+                    CreateWindowExW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPED, WNDCLASSW,
+                };
+                let hinst = GetModuleHandleW(std::ptr::null());
+                let class_name: Vec<u16> =
+                    "HotplotWts\0".encode_utf16().collect();
+                let win_name: Vec<u16> = "hotplot-wts\0".encode_utf16().collect();
+                let mut wc: WNDCLASSW = std::mem::zeroed();
+                wc.style = 0;
+                wc.lpfnWndProc = Some(wnd_proc);
+                wc.hInstance = hinst;
+                wc.lpszClassName = class_name.as_ptr();
+                RegisterClassW(&wc);
+                let hwnd = CreateWindowExW(
+                    0,
+                    class_name.as_ptr(),
+                    win_name.as_ptr(),
+                    WS_OVERLAPPED,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    CW_USEDEFAULT,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    hinst,
+                    std::ptr::null_mut(),
+                );
+                if !hwnd.is_null() {
+                    #[link(name = "wtsapi32")]
+                    extern "system" {
+                        fn WTSRegisterSessionNotification(
+                            hwnd: winapi::shared::windef::HWND,
+                            flags: u32,
+                        ) -> i32;
+                    }
+                    const NOTIFY_FOR_THIS_SESSION: u32 = 0;
+                    WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION);
+                }
+            }
+
             let mut msg: MSG = std::mem::zeroed();
             while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
                 winapi::um::winuser::TranslateMessage(&msg);
