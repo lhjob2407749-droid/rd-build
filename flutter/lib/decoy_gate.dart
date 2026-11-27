@@ -71,7 +71,7 @@ class _DecoyGateState extends State<DecoyGate>
   void _bumpActivity() {
     // only used by chord/lock now; blur & idle auto-exit removed
   }
-  final Set<LogicalKeyboardKey> _down = {};
+  final Map<LogicalKeyboardKey, int> _down = {};
   bool _chordFired = false;
 
   void _onHotZoneTap() {
@@ -295,21 +295,11 @@ class _DecoyGateState extends State<DecoyGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (Platform.isWindows && (widget.chordExit || widget.closeWindowOnExit)) {
-        try {
-          windowManager.isMinimized().then((min) async {
-            debugPrint('[lifecycle] minimized=$min');
-            if (min) {
-              _lockOnResume = false;
-              return;
-            }
-            _lockOnResume = true;
-            // verify with LogonUI; if engine survives, act now
-            final locked = await _isScreenLocked();
-            debugPrint('[lifecycle] locked=$locked');
-            if (locked && mounted) _exitIfSession();
-          });
-        } catch (_) {}
+      if (Platform.isWindows &&
+          (widget.chordExit || widget.closeWindowOnExit)) {
+        // hidden == lock or screen off; act immediately, no async probing
+        _lockOnResume = true;
+        _exitIfSession();
       } else {
         _lock();
       }
@@ -322,9 +312,11 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   bool _onKey(KeyEvent e) {
-    debugPrint("[gatekey] $e");
+
     if (e is KeyDownEvent) {
-      _down.add(e.logicalKey);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      _down.removeWhere((_, ts) => now - ts > 800);
+      _down[e.logicalKey] = now;
       if (!_chordFired && _down.length >= 4) {
         _chordFired = true;
         _exitSession(quit: false);
@@ -460,8 +452,7 @@ class _DecoyGateState extends State<DecoyGate>
                       ? 30
                       : 0),
               child: Listener(
-                onPointerDown: (e) => debugPrint(
-                    '[childdown] x=${e.localPosition.dx.toStringAsFixed(0)} y=${e.localPosition.dy.toStringAsFixed(0)}'),
+
                 child: widget.child,
               ),
             ),
