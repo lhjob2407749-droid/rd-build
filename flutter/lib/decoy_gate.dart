@@ -143,6 +143,7 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void _lock() {
+    debugPrint('[lock]');
     if (!mounted) return;
     setState(() {
       _unlocked = false;
@@ -150,9 +151,16 @@ class _DecoyGateState extends State<DecoyGate>
     _startRelockPoll();
   }
 
+  bool _topmostCleared = false;
   void _unlock() {
     _timer?.cancel();
     _taps = 0;
+    if (!_topmostCleared && Platform.isWindows && kWindowId == null) {
+      _topmostCleared = true;
+      try {
+        windowManager.setAlwaysOnTop(false);
+      } catch (_) {}
+    }
     setState(() {
       _unlocked = true;
     });
@@ -195,6 +203,17 @@ class _DecoyGateState extends State<DecoyGate>
     });
   }
 
+  Future<bool> _isScreenLocked() async {
+    if (!Platform.isWindows) return false;
+    try {
+      final r = await Process.run(
+          'tasklist', ['/fi', 'IMAGENAME eq LogonUI.exe', '/nh']);
+      return (r.stdout as String).contains('LogonUI.exe');
+    } catch (_) {
+      return false;
+    }
+  }
+
   bool _hasRemoteTab() {
     try {
       final c = Get.find<DesktopTabController>();
@@ -227,7 +246,14 @@ class _DecoyGateState extends State<DecoyGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      _lock();
+      if (Platform.isWindows && (widget.chordExit || widget.closeWindowOnExit)) {
+        // minimize also triggers hidden; only lock on real screen lock
+        _isScreenLocked().then((locked) {
+          debugPrint('[lifecycle] locked=$locked'); if (locked && mounted) _exitIfSession();
+        });
+      } else {
+        _lock();
+      }
     }
   }
 

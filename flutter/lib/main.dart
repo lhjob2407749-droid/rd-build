@@ -286,9 +286,6 @@ void runMultiWindow(
     unawaited(windowManager.show());
     unawaited(windowManager.focus());
     unawaited(windowManager.setAlwaysOnTop(true));
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      windowManager.setAlwaysOnTop(false);
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 300), _forceForegroundOnce);
       Future.delayed(const Duration(milliseconds: 1500), _forceForegroundOnce);
