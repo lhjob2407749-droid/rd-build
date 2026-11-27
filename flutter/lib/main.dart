@@ -566,6 +566,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           home: isWeb
               ? WebHomePage()
               : DecoyGate(
+                  chordExit: isDesktop,
                   child: isDesktop ? const DesktopTabPage() : HomePage()),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,

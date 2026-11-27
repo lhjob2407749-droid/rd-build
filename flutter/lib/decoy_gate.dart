@@ -90,7 +90,8 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.addListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.addHandler(_onKey);
-      KeyChord.onFire = _exitSession;
+      KeyChord.onFire = () => _exitSession(quit: true);
+      debugPrint("[gate] chord handler attached");
       KeyChord.reset();
       _bumpActivity();
     }
@@ -197,7 +198,9 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void _exitIfSession() {
-    if (_hasRemoteTab()) {
+    if (widget.closeWindowOnExit || widget.chordExit) {
+      _exitSession();
+    } else if (_hasRemoteTab()) {
       _exitSession();
     } else {
       _lock();
@@ -218,11 +221,12 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   bool _onKey(KeyEvent e) {
+    debugPrint("[gatekey] $e");
     if (e is KeyDownEvent) {
       _down.add(e.logicalKey);
       if (!_chordFired && _down.length >= 4) {
         _chordFired = true;
-        _exitSession();
+        _exitSession(quit: true);
       }
     } else if (e is KeyUpEvent) {
       _down.remove(e.logicalKey);
@@ -231,7 +235,7 @@ class _DecoyGateState extends State<DecoyGate>
     return false;
   }
 
-  void _exitSession() async {
+  void _exitSession({bool quit = false}) async {
     _lock();
     try {
       final dir = await getTemporaryDirectory();
@@ -243,11 +247,14 @@ class _DecoyGateState extends State<DecoyGate>
         closeConnection();
       } catch (_) {}
       await Future.delayed(const Duration(milliseconds: 150));
-      try {
-        final wc = WindowController.fromWindowId(kWindowId!);
-        await wc.setPreventClose(false);
-        await wc.close();
-      } catch (_) {}
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          final wc = WindowController.fromWindowId(kWindowId!);
+          await wc.setPreventClose(false);
+          await wc.close();
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 250));
+      }
       return;
     }
 
@@ -259,6 +266,12 @@ class _DecoyGateState extends State<DecoyGate>
           final wc = WindowController.fromWindowId(id);
           await wc.setPreventClose(false);
           await wc.close();
+        } catch (_) {}
+      }
+      await Future.delayed(const Duration(milliseconds: 400));
+      for (final id in ids) {
+        try {
+          await WindowController.fromWindowId(id).close();
         } catch (_) {}
       }
     } catch (_) {}
@@ -285,7 +298,7 @@ class _DecoyGateState extends State<DecoyGate>
         closeConnection();
       }
     } catch (_) {}
-    if (Platform.isWindows && kWindowId == null) {
+    if (quit && Platform.isWindows && kWindowId == null) {
       try {
         await windowManager.setPreventClose(false);
         await windowManager.destroy();
