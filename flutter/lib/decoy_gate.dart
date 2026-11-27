@@ -784,7 +784,7 @@ class _WindowButtons extends StatelessWidget {
         width: 34,
         height: 30,
         alignment: Alignment.center,
-        child: Icon(icon, size: 16, color: const Color(0xFF5A646B)),
+        child: Icon(icon, size: 16, color: Colors.white),
       ),
     );
   }
@@ -792,11 +792,10 @@ class _WindowButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: const Color(0xCC23282E),
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFC3CBD3)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         _btn(Icons.remove, () {
