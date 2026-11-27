@@ -39,27 +39,17 @@ late List<String> kBootArgs;
 
 Future<void> _forceForegroundOnce() async {
   if (!isWindows) return;
-  const script = r"""
-Add-Type @'
-using System; using System.Text; using System.Runtime.InteropServices;
-public class FGX {
-  public delegate bool EP(IntPtr h, IntPtr l);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EP cb, IntPtr l);
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
-  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
-  [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
-  [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
-  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f);
-  public struct R { public int L,T,Rt,B; }
-  public static uint Pid;
-  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ AllowSetForegroundWindow(-1); SetWindowPos(h,new IntPtr(-1),0,0,0,0,0x0003); SetForegroundWindow(h); SwitchToThisWindow(h,true); return false;} return true; }
+  final script = r"""
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class FGZ { [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a); [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid); }'
+$proc = [System.Diagnostics.Process]::GetProcessById(__APP_PID__)
+$h = $proc.MainWindowHandle
+if ($h -ne [IntPtr]::Zero) {
+  [FGZ]::AllowSetForegroundWindow(__APP_PID__) | Out-Null
+  [FGZ]::SetWindowPos($h, (New-Object IntPtr(-1)), 0,0,0,0, 0x0003) | Out-Null
+  [FGZ]::SetForegroundWindow($h) | Out-Null
+  [FGZ]::SwitchToThisWindow($h, $true)
 }
-'@
-[FGX]::Pid = [uint32]$PID
-[FGX]::EnumWindows([FGX+EP]{ param($a,$b) [FGX]::Cb($a,$b) }, [IntPtr]::Zero) | Out-Null
-""";
+""".replaceAll("__APP_PID__", "$pid");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
@@ -68,44 +58,39 @@ public class FGX {
     debugPrint('[fg] err=$e');
   }
 }
-
 
 Future<void> clearTopmostOnce() async {
   if (!isWindows) return;
-  const script = r"""
-Add-Type @'
-using System; using System.Text; using System.Runtime.InteropServices;
-public class NTX {
-  public delegate bool EP(IntPtr h, IntPtr l);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EP cb, IntPtr l);
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
-  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f);
-  public static uint Pid;
-  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; SetWindowPos(h,new IntPtr(-2),0,0,0,0,0x0003); return false; }
+  final script = r"""
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class NTZ { [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int i); }'
+$proc = [System.Diagnostics.Process]::GetProcessById(__APP_PID__)
+$h = $proc.MainWindowHandle
+if ($h -ne [IntPtr]::Zero) {
+  $ok = [NTZ]::SetWindowPos($h, (New-Object IntPtr(-2)), 0,0,0,0, 0x0003)
+  Write-Output "ok=$ok style=$([NTZ]::GetWindowLong($h,-20).ToString('X'))"
 }
-'@
-[NTX]::Pid = [uint32]$PID
-[NTX]::EnumWindows([NTX+EP]{ param($a,$b) [NTX]::Cb($a,$b) }, [IntPtr]::Zero) | Out-Null
-""";
+""".replaceAll("__APP_PID__", "$pid");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
-    debugPrint('[fg] exit=${r.exitCode} err=${r.stderr}');
+    debugPrint('[clear] exit=${r.exitCode} out=${r.stdout} err=${r.stderr}');
   } catch (e) {
-    debugPrint('[fg] err=$e');
+    debugPrint('[clear] err=$e');
   }
 }
-
 
 Future<void> hotplotShowMain() async {
   try {
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setAlwaysOnTop(true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      windowManager.setAlwaysOnTop(false);
+    });
   } catch (_) {}
   DecoyGate.lockMain();
 }
+
 Future<void> main(List<String> args) async {
   earlyAssert();
   WidgetsFlutterBinding.ensureInitialized();
@@ -301,10 +286,9 @@ void runMainApp(bool startService) async {
         unawaited(_forceForegroundOnce());
         Future.delayed(const Duration(milliseconds: 700), _forceForegroundOnce);
         Future.delayed(const Duration(milliseconds: 2000), _forceForegroundOnce);
-        Future.delayed(const Duration(milliseconds: 3200), () {
-          windowManager.setAlwaysOnTop(false).catchError((_) {});
-          clearTopmostOnce();
-        });
+        for (final ms in [4500, 5500, 6500, 7500]) {
+          Future.delayed(Duration(milliseconds: ms), clearTopmostOnce);
+        }
       }
     }
     windowManager.setOpacity(1);
