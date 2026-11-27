@@ -793,7 +793,11 @@ class _WindowButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFFC3CBD3)),
+      ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         _btn(Icons.remove, () {
           if (kWindowId == null) {
