@@ -117,13 +117,14 @@ class _DecoyGateState extends State<DecoyGate>
       }
     }
     if (Platform.isWindows) {
-      _lockPoll = Timer.periodic(const Duration(seconds: 4), (_) async {
+      _lockPoll = Timer.periodic(const Duration(milliseconds: 700), (_) async {
         try {
           final r = await Process.run(
               'tasklist', ['/fi', 'IMAGENAME eq LogonUI.exe', '/nh']);
           final locked = (r.stdout as String).contains('LogonUI.exe');
           if (locked && !_wasLocked) {
             _wasLocked = true;
+            _lockOnResume = true;
             if (mounted) {
               if (widget.closeWindowOnExit) {
                 _exitSession();
@@ -306,7 +307,11 @@ class _DecoyGateState extends State<DecoyGate>
     } else if (state == AppLifecycleState.resumed) {
       if (_lockOnResume) {
         _lockOnResume = false;
-        _exitIfSession();
+        if (widget.closeWindowOnExit) {
+          _exitSession();
+        } else {
+          _lock();
+        }
       }
     }
   }
