@@ -55,7 +55,7 @@ class _DecoyGateState extends State<DecoyGate>
   Timer? _idleTimer;
   Timer? _lockPoll;
   Timer? _chordPoll;
-  String _lastChordStamp = '';
+  int _chordStartMs = 0;
   bool _wasLocked = false;
   final FocusNode _kbdFocus = FocusNode();
 
@@ -70,6 +70,7 @@ class _DecoyGateState extends State<DecoyGate>
   bool _chordFired = false;
 
   void _onHotZoneTap() {
+    debugPrint('[tap] unlocked=$_unlocked taps=$_taps');
     if (_unlocked) {
       return;
     }
@@ -161,15 +162,16 @@ class _DecoyGateState extends State<DecoyGate>
 
   void _startChordPoll() {
     _chordPoll?.cancel();
+    _chordStartMs = DateTime.now().millisecondsSinceEpoch;
     _chordPoll = Timer.periodic(const Duration(milliseconds: 350), (t) async {
       if (!mounted) return;
       try {
         final dir = await getTemporaryDirectory();
         final f = File('${dir.path}/hotplot_chord');
         if (!await f.exists()) return;
-        final stamp = (await f.readAsString()).trim();
-        if (stamp.isEmpty || stamp == _lastChordStamp) return;
-        _lastChordStamp = stamp;
+        final stamp = int.tryParse((await f.readAsString()).trim()) ?? 0;
+        if (stamp <= _chordStartMs) return;
+        _chordStartMs = stamp;
         _exitSession();
       } catch (_) {}
     });
@@ -295,27 +297,28 @@ class _DecoyGateState extends State<DecoyGate>
       }
     } catch (_) {}
 
-    var closedTab = false;
     try {
       final c = Get.find<DesktopTabController>();
       final tabs = c.state.value.tabs;
-      for (var i = tabs.length - 1; i >= 0; i--) {
-        if (tabs[i].page is RemotePage) {
-          final cb = tabs[i].onTabCloseButton;
-          if (cb != null) {
-            cb();
-          } else {
-            c.remove(i);
-          }
-          closedTab = true;
+      final remoteKeys = tabs
+          .where((t) => t.page is RemotePage)
+          .map((t) => t.key)
+          .toList();
+      for (final key in remoteKeys) {
+        final idx = c.state.value.tabs.indexWhere((t) => t.key == key);
+        if (idx < 0) continue;
+        final cb = c.state.value.tabs[idx].onTabCloseButton;
+        if (cb != null) {
+          cb();
+        } else {
+          c.remove(idx);
         }
       }
+      final homeIdx = c.state.value.tabs.indexWhere((t) => !t.closable);
+      if (homeIdx >= 0 && c.state.value.selected != homeIdx) {
+        c.jumpTo(homeIdx);
+      }
     } catch (_) {}
-    if (closedTab) {
-      try {
-        closeConnection();
-      } catch (_) {}
-    }
     if (quit && Platform.isWindows && kWindowId == null) {
       try {
         await windowManager.setPreventClose(false);
@@ -327,6 +330,18 @@ class _DecoyGateState extends State<DecoyGate>
 
   @override
   Widget build(BuildContext context) {
+    if (_unlocked) {
+      return KeyboardListener(
+        focusNode: _kbdFocus,
+        autofocus: true,
+        onKeyEvent: (e) => _bumpActivity(),
+        child: Listener(
+          onPointerDown: (_) => _bumpActivity(),
+          onPointerMove: (_) => _bumpActivity(),
+          child: widget.child,
+        ),
+      );
+    }
     return KeyboardListener(
       focusNode: _kbdFocus,
       autofocus: true,
@@ -346,7 +361,11 @@ class _DecoyGateState extends State<DecoyGate>
                   top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
                       ? 30
                       : 0),
-              child: _unlocked ? widget.child : const DecoyWeb(),
+              child: _unlocked
+                  ? Listener(
+                      onPointerDown: (e) => debugPrint('[childdown] x=${e.localPosition.dx.toStringAsFixed(0)} y=${e.localPosition.dy.toStringAsFixed(0)}'),
+                      child: widget.child)
+                  : const DecoyWeb(),
             ),
           ),
         if (!_unlocked)

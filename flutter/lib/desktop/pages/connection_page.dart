@@ -332,6 +332,7 @@ class _ConnectionPageState extends State<ConnectionPage>
       bool isViewCamera = false,
       bool isTerminal = false,
       bool isTcpTunneling = false}) {
+    debugPrint('[onConnect]');
     var id = _idController.id;
     connect(context, id,
         isFileTransfer: isFileTransfer,
