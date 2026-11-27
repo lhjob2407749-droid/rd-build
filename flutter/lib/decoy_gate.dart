@@ -179,6 +179,9 @@ class _DecoyGateState extends State<DecoyGate>
 
   void _lock() {
     debugPrint('[lock]');
+    _down.clear();
+    _chordFired = false;
+    KeyChord.reset();
     if (Platform.isWindows && kWindowId == null) {
       try {
         windowManager.setAlwaysOnTop(true);
@@ -197,6 +200,9 @@ class _DecoyGateState extends State<DecoyGate>
     _taps = 0;
     _wasLocked = false;
     _lockOnResume = false;
+    _down.clear();
+    _chordFired = false;
+    KeyChord.reset();
     if (!_topmostCleared && Platform.isWindows && kWindowId == null) {
       _topmostCleared = true;
       try {
@@ -239,6 +245,9 @@ class _DecoyGateState extends State<DecoyGate>
         if (parts[0] == 'lock') {
           _wasLocked = true;
           _lockOnResume = true;
+          _down.clear();
+          _chordFired = false;
+          KeyChord.reset();
           if (widget.closeWindowOnExit) {
             _exitSession();
           } else if (widget.chordExit) {
@@ -250,6 +259,9 @@ class _DecoyGateState extends State<DecoyGate>
           _wasLocked = false;
           _lockOnResume = false;
           _lastUnlockMs = DateTime.now().millisecondsSinceEpoch;
+          _down.clear();
+          _chordFired = false;
+          KeyChord.reset();
         }
       } catch (_) {}
     });
