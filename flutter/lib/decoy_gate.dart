@@ -11,7 +11,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
 import 'desktop/pages/desktop_home_page.dart';
 import 'desktop/widgets/tabbar_widget.dart';
-import 'main.dart' show kWindowId;
+import 'main.dart' show kWindowId, clearTopmostOnce;
 import 'utils/key_chord.dart';
 import 'utils/multi_window_manager.dart';
 import 'desktop/pages/remote_page.dart';
@@ -159,6 +159,7 @@ class _DecoyGateState extends State<DecoyGate>
       _topmostCleared = true;
       try {
         windowManager.setAlwaysOnTop(false);
+        clearTopmostOnce();
       } catch (_) {}
     }
     setState(() {
@@ -247,10 +248,13 @@ class _DecoyGateState extends State<DecoyGate>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (Platform.isWindows && (widget.chordExit || widget.closeWindowOnExit)) {
-        // minimize also triggers hidden; only lock on real screen lock
-        _isScreenLocked().then((locked) {
-          debugPrint('[lifecycle] locked=$locked'); if (locked && mounted) _exitIfSession();
-        });
+        // win+L lock is not a minimize; minimize keeps the session
+        try {
+          windowManager.isMinimized().then((min) {
+            debugPrint('[lifecycle] minimized=$min');
+            if (!min && mounted) _exitIfSession();
+          });
+        } catch (_) {}
       } else {
         _lock();
       }
@@ -726,11 +730,9 @@ class _WindowButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         _btn(Icons.remove, () {
           if (kWindowId == null) {

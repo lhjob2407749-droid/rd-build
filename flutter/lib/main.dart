@@ -51,18 +51,50 @@ public class FGX {
   [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f);
   public struct R { public int L,T,Rt,B; }
   public static uint Pid;
-  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ [FGX]::AllowSetForegroundWindow(-1) | Out-Null; SetForegroundWindow(h) | Out-Null; SwitchToThisWindow(h,true); return false;} return true; }
+  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ AllowSetForegroundWindow(-1); SetWindowPos(h,new IntPtr(-1),0,0,0,0,0x0003); SetForegroundWindow(h); SwitchToThisWindow(h,true); return false;} return true; }
 }
 '@
 [FGX]::Pid = [uint32]$PID
 [FGX]::EnumWindows([FGX+EP]{ param($a,$b) [FGX]::Cb($a,$b) }, [IntPtr]::Zero) | Out-Null
 """;
   try {
-    await Process.run('powershell',
+    final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
-  } catch (_) {}
+    debugPrint('[fg] exit=${r.exitCode} err=${r.stderr}');
+  } catch (e) {
+    debugPrint('[fg] err=$e');
+  }
+}
+
+
+Future<void> clearTopmostOnce() async {
+  if (!isWindows) return;
+  const script = r"""
+Add-Type @'
+using System; using System.Text; using System.Runtime.InteropServices;
+public class NTX {
+  public delegate bool EP(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EP cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f);
+  public static uint Pid;
+  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; SetWindowPos(h,new IntPtr(-2),0,0,0,0,0x0003); return false; }
+}
+'@
+[NTX]::Pid = [uint32]$PID
+[NTX]::EnumWindows([NTX+EP]{ param($a,$b) [NTX]::Cb($a,$b) }, [IntPtr]::Zero) | Out-Null
+""";
+  try {
+    final r = await Process.run('powershell',
+        ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
+    debugPrint('[fg] exit=${r.exitCode} err=${r.stderr}');
+  } catch (e) {
+    debugPrint('[fg] err=$e');
+  }
 }
 
 Future<void> main(List<String> args) async {
@@ -248,6 +280,12 @@ void runMainApp(bool startService) async {
       windowManager.focus();
       // Move registration of active main window here to prevent from async visible check.
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
+      if (isWindows) {
+        unawaited(windowManager.setAlwaysOnTop(true).catchError((_) {}));
+        unawaited(_forceForegroundOnce());
+        Future.delayed(const Duration(milliseconds: 700), _forceForegroundOnce);
+        Future.delayed(const Duration(milliseconds: 2000), _forceForegroundOnce);
+      }
     }
     windowManager.setOpacity(1);
     windowManager.setTitle(getWindowName());
@@ -285,7 +323,15 @@ void runMultiWindow(
     // bring the decoy window to the front on launch (it can start behind)
     unawaited(windowManager.show());
     unawaited(windowManager.focus());
-    unawaited(windowManager.setAlwaysOnTop(true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 100),
+          () => windowManager.setAlwaysOnTop(true).catchError((_) {}));
+      Future.delayed(const Duration(milliseconds: 800),
+          () => windowManager.setAlwaysOnTop(true).catchError((_) {}));
+      Future.delayed(const Duration(milliseconds: 5000), _forceForegroundOnce);
+      Future.delayed(const Duration(milliseconds: 9000), _forceForegroundOnce);
+      Future.delayed(const Duration(milliseconds: 12000), _forceForegroundOnce);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 300), _forceForegroundOnce);
       Future.delayed(const Duration(milliseconds: 1500), _forceForegroundOnce);
