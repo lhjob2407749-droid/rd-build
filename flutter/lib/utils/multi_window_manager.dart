@@ -260,11 +260,22 @@ class RustDeskMultiWindowManager {
         mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs);
 
     if (windows.length > 1 || !openInTabs) {
-      for (final windowId in windows) {
-        if (await DesktopMultiWindow.invokeMethod(
-            windowId, kWindowEventActiveSession, remoteId)) {
-          return MultiWindowCallResult(windowId, null);
+      final stale = <int>[];
+      for (final windowId in List<int>.from(windows)) {
+        try {
+          if (await DesktopMultiWindow.invokeMethod(
+              windowId, kWindowEventActiveSession, remoteId)) {
+            return MultiWindowCallResult(windowId, null);
+          }
+          stale.add(windowId);
+        } catch (_) {
+          stale.add(windowId);
         }
+      }
+      for (final w in stale) {
+        try {
+          windows.remove(w);
+        } catch (_) {}
       }
     }
 

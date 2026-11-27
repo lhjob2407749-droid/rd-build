@@ -62,11 +62,7 @@ class _DecoyGateState extends State<DecoyGate>
   final FocusNode _kbdFocus = FocusNode();
 
   void _bumpActivity() {
-    if (!widget.chordExit) return;
-    _idleTimer?.cancel();
-    _idleTimer = Timer(const Duration(minutes: 3), () {
-      if (mounted) _exitIfSession();
-    });
+    // only used by chord/lock now; blur & idle auto-exit removed
   }
   final Set<LogicalKeyboardKey> _down = {};
   bool _chordFired = false;
@@ -209,15 +205,7 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void onWindowBlur() {
-    _blurTimer?.cancel();
-    _blurTimer = Timer(const Duration(seconds: 45), () {
-      if (!mounted) return;
-      if (widget.chordExit) {
-        _exitIfSession();
-      } else {
-        _lock();
-      }
-    });
+    // blur no longer closes sessions; lock/chord only
   }
 
   void _exitIfSession() {
@@ -297,6 +285,9 @@ class _DecoyGateState extends State<DecoyGate>
           await WindowController.fromWindowId(id).close();
         } catch (_) {}
       }
+      try {
+        rustDeskWinManager.clearWindowType(WindowType.RemoteDesktop);
+      } catch (_) {}
     } catch (_) {}
 
     try {

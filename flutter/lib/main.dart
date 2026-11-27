@@ -36,6 +36,33 @@ int? kWindowId;
 WindowType? kWindowType;
 late List<String> kBootArgs;
 
+
+Future<void> _forceForegroundOnce() async {
+  if (!isWindows) return;
+  const script = r"""
+Add-Type @'
+using System; using System.Text; using System.Runtime.InteropServices;
+public class FGX {
+  public delegate bool EP(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EP cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a);
+  public struct R { public int L,T,Rt,B; }
+  public static uint Pid;
+  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ SwitchToThisWindow(h,true); return false;} return true; }
+}
+'@
+[FGX]::Pid = [uint32]$PID
+[FGX]::EnumWindows([FGX+EP]{ param($a,$b) [FGX]::Cb($a,$b) }, [IntPtr]::Zero) | Out-Null
+""";
+  try {
+    await Process.run('powershell',
+        ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
+  } catch (_) {}
+}
+
 Future<void> main(List<String> args) async {
   earlyAssert();
   WidgetsFlutterBinding.ensureInitialized();
@@ -259,6 +286,10 @@ void runMultiWindow(
     unawaited(windowManager.setAlwaysOnTop(true));
     Future.delayed(const Duration(milliseconds: 3000), () {
       windowManager.setAlwaysOnTop(false);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 300), _forceForegroundOnce);
+      Future.delayed(const Duration(milliseconds: 1500), _forceForegroundOnce);
     });
   }
   late Widget widget;
