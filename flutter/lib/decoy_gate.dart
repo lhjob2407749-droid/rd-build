@@ -341,13 +341,13 @@ class _DecoyGateState extends State<DecoyGate>
       child: Stack(
         children: [
           Positioned.fill(
-            child: _unlocked ? widget.child : const DecoyWeb(),
-          ),
-        if (!_unlocked)
-          Positioned(
-            top: 1,
-            right: 2,
-            child: _WindowButtons(),
+            child: Padding(
+              padding: EdgeInsets.only(
+                  top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
+                      ? 30
+                      : 0),
+              child: _unlocked ? widget.child : const DecoyWeb(),
+            ),
           ),
         if (!_unlocked)
           Positioned.fill(
@@ -372,12 +372,14 @@ class _DecoyGateState extends State<DecoyGate>
                 const Text('hotplot',
                     style: TextStyle(fontSize: 12, color: Color(0xFF4A5560))),
                 const Spacer(),
+                _WindowButtons(),
+                const SizedBox(width: 2),
               ]),
             ),
           ),
         if (!_unlocked && (Platform.isWindows || Platform.isLinux))
           Positioned(
-            left: 0, right: 80, top: 0, height: 30,
+            left: 0, right: 120, top: 0, height: 30,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (_) {
@@ -684,7 +686,7 @@ class _WindowButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
