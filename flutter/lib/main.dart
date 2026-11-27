@@ -103,9 +103,6 @@ Future<void> hotplotShowMain() async {
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setAlwaysOnTop(true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      windowManager.setAlwaysOnTop(false);
-    });
   } catch (_) {}
   DecoyGate.lockMain();
 }

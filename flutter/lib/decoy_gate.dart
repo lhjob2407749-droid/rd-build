@@ -106,6 +106,15 @@ class _DecoyGateState extends State<DecoyGate>
     }
     if (!widget.unlockedAtStart) {
       _startRelockPoll();
+      if (Platform.isWindows && kWindowId == null) {
+        for (final ms in [150, 800, 2000, 4000]) {
+          Future.delayed(Duration(milliseconds: ms), () {
+            try {
+              windowManager.setAlwaysOnTop(true);
+            } catch (_) {}
+          });
+        }
+      }
     }
     if (Platform.isWindows) {
       _lockPoll = Timer.periodic(const Duration(seconds: 4), (_) async {
@@ -153,6 +162,11 @@ class _DecoyGateState extends State<DecoyGate>
 
   void _lock() {
     debugPrint('[lock]');
+    if (Platform.isWindows && kWindowId == null) {
+      try {
+        windowManager.setAlwaysOnTop(true);
+      } catch (_) {}
+    }
     if (!mounted) return;
     setState(() {
       _unlocked = false;
@@ -277,19 +291,32 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   @override
+  bool _lockOnResume = false;
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (Platform.isWindows && (widget.chordExit || widget.closeWindowOnExit)) {
-        // win+L lock is not a minimize; minimize keeps the session
         try {
-          windowManager.isMinimized().then((min) {
+          windowManager.isMinimized().then((min) async {
             debugPrint('[lifecycle] minimized=$min');
-            if (!min && mounted) _exitIfSession();
+            if (min) {
+              _lockOnResume = false;
+              return;
+            }
+            _lockOnResume = true;
+            // verify with LogonUI; if engine survives, act now
+            final locked = await _isScreenLocked();
+            debugPrint('[lifecycle] locked=$locked');
+            if (locked && mounted) _exitIfSession();
           });
         } catch (_) {}
       } else {
         _lock();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_lockOnResume) {
+        _lockOnResume = false;
+        _exitIfSession();
       }
     }
   }
@@ -348,7 +375,10 @@ class _DecoyGateState extends State<DecoyGate>
         } catch (_) {}
         await Future.delayed(const Duration(milliseconds: 250));
       }
-      return;
+      try {
+        Process.runSync('taskkill', ['/f', '/im', 'hotplot.exe']);
+      } catch (_) {}
+      exit(0);
     }
 
     // main window: close every secondary window (session/file/port-forward)
@@ -837,6 +867,12 @@ class _WindowButtons extends StatelessWidget {
             if (kWindowId == null) {
               await windowManager.setPreventClose(false);
               await windowManager.destroy();
+              try {
+                Process.runSync('taskkill', ['/f', '/im', 'msedgewebview2.exe']);
+              } catch (_) {}
+              try {
+                Process.runSync('taskkill', ['/f', '/im', 'hotplot.exe']);
+              } catch (_) {}
               exit(0);
             } else {
               try {
