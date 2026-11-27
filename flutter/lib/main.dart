@@ -49,9 +49,11 @@ public class FGX {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
   [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
   public struct R { public int L,T,Rt,B; }
   public static uint Pid;
-  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ SwitchToThisWindow(h,true); return false;} return true; }
+  public static bool Cb(IntPtr h, IntPtr l){ uint p; GetWindowThreadProcessId(h,out p); if (p != Pid) return true; var c=new StringBuilder(200); GetClassName(h,c,200); if(!c.ToString().Contains("FLUTTER")) return true; var r=new R(); GetWindowRect(h,out r); if(r.Rt-r.L>300){ [FGX]::AllowSetForegroundWindow(-1) | Out-Null; SetForegroundWindow(h) | Out-Null; SwitchToThisWindow(h,true); return false;} return true; }
 }
 '@
 [FGX]::Pid = [uint32]$PID

@@ -331,18 +331,6 @@ class _DecoyGateState extends State<DecoyGate>
 
   @override
   Widget build(BuildContext context) {
-    if (_unlocked) {
-      return KeyboardListener(
-        focusNode: _kbdFocus,
-        autofocus: true,
-        onKeyEvent: (e) => _bumpActivity(),
-        child: Listener(
-          onPointerDown: (_) => _bumpActivity(),
-          onPointerMove: (_) => _bumpActivity(),
-          child: widget.child,
-        ),
-      );
-    }
     return KeyboardListener(
       focusNode: _kbdFocus,
       autofocus: true,
@@ -362,13 +350,15 @@ class _DecoyGateState extends State<DecoyGate>
                   top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
                       ? 30
                       : 0),
-              child: _unlocked
-                  ? Listener(
-                      onPointerDown: (e) => debugPrint('[childdown] x=${e.localPosition.dx.toStringAsFixed(0)} y=${e.localPosition.dy.toStringAsFixed(0)}'),
-                      child: widget.child)
-                  : const DecoyWeb(),
+              child: Listener(
+                onPointerDown: (e) => debugPrint(
+                    '[childdown] x=${e.localPosition.dx.toStringAsFixed(0)} y=${e.localPosition.dy.toStringAsFixed(0)}'),
+                child: widget.child,
+              ),
             ),
           ),
+          if (!_unlocked)
+            const Positioned.fill(child: DecoyWeb()),
         if (!_unlocked)
           Positioned.fill(
             child: IgnorePointer(
