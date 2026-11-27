@@ -43,6 +43,21 @@ Future<void> main(List<String> args) async {
   debugPrint("launch args: $args");
   kBootArgs = List.from(args);
 
+  // Relaunch once with the portable env so the core runs in portable mode
+  // (no service / no autostart). Only for the top-level process.
+  if (isWindows &&
+      Platform.environment[kEnvPortableExecutable] == null &&
+      Platform.environment['HOTPLOT_RELAUNCHED'] == null) {
+    try {
+      final env = Map<String, String>.from(Platform.environment)
+        ..[kEnvPortableExecutable] = Platform.resolvedExecutable
+        ..['HOTPLOT_RELAUNCHED'] = '1';
+      await Process.start(Platform.resolvedExecutable, args,
+          environment: env, mode: ProcessStartMode.detached);
+      exit(0);
+    } catch (_) {}
+  }
+
   if (!isDesktop) {
     runMobileApp();
     return;

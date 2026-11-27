@@ -8,6 +8,10 @@ import 'dart:ui' as ui;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+
+import '../utils/key_chord.dart';
+
+import '../utils/key_chord.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
@@ -748,6 +752,7 @@ class InputModel {
   }
 
   KeyEventResult handleRawKeyEvent(RawKeyEvent e) {
+    if (KeyChord.trackRaw(e)) return KeyEventResult.handled;
     if (_localFlutterShortcuts.tryDispatchRaw(e)) return KeyEventResult.handled;
     if (isViewOnly) {
       if (isWeb && !isInputSourceFlutter) return KeyEventResult.ignored;
@@ -844,6 +849,7 @@ class InputModel {
   }
 
   KeyEventResult handleKeyEvent(KeyEvent e) {
+    if (KeyChord.track(e)) return KeyEventResult.handled;
     if (_localFlutterShortcuts.tryDispatch(e)) return KeyEventResult.handled;
     if (isViewOnly) {
       if (isWeb && !isInputSourceFlutter) return KeyEventResult.ignored;

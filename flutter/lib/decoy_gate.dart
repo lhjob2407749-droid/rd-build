@@ -10,6 +10,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
 import 'desktop/widgets/tabbar_widget.dart';
 import 'main.dart' show kWindowId;
+import 'utils/key_chord.dart';
 import 'utils/multi_window_manager.dart';
 import 'desktop/pages/remote_page.dart';
 import 'models/state_model.dart';
@@ -89,6 +90,8 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.addListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.addHandler(_onKey);
+      KeyChord.onFire = _exitSession;
+      KeyChord.reset();
       _bumpActivity();
     }
     if (!widget.unlockedAtStart) {
@@ -129,6 +132,8 @@ class _DecoyGateState extends State<DecoyGate>
     windowManager.removeListener(this);
     if (widget.chordExit) {
       HardwareKeyboard.instance.removeHandler(_onKey);
+      if (KeyChord.onFire == _exitSession) KeyChord.onFire = null;
+      KeyChord.reset();
       _idleTimer?.cancel();
     }
     super.dispose();
@@ -143,6 +148,8 @@ class _DecoyGateState extends State<DecoyGate>
   }
 
   void _unlock() {
+    _timer?.cancel();
+    _taps = 0;
     setState(() {
       _unlocked = true;
     });
@@ -233,6 +240,10 @@ class _DecoyGateState extends State<DecoyGate>
 
     if (widget.closeWindowOnExit) {
       try {
+        closeConnection();
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 150));
+      try {
         final wc = WindowController.fromWindowId(kWindowId!);
         await wc.setPreventClose(false);
         await wc.close();
@@ -274,6 +285,13 @@ class _DecoyGateState extends State<DecoyGate>
         closeConnection();
       }
     } catch (_) {}
+    if (Platform.isWindows && kWindowId == null) {
+      try {
+        await windowManager.setPreventClose(false);
+        await windowManager.destroy();
+      } catch (_) {}
+      exit(0);
+    }
   }
 
   @override
@@ -300,26 +318,34 @@ class _DecoyGateState extends State<DecoyGate>
             right: 2,
             child: _WindowButtons(),
           ),
-        if (!_unlocked)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 26,
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+          Positioned.fill(
             child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+              behavior: HitTestBehavior.translucent,
               onPanStart: (_) {
                 try {
-                  WindowController.fromWindowId(kWindowId!).startDragging();
+                  if (kWindowId == null) {
+                    windowManager.startDragging();
+                  } else {
+                    WindowController.fromWindowId(kWindowId!).startDragging();
+                  }
                 } catch (_) {}
               },
               onDoubleTap: () async {
                 try {
-                  final wc = WindowController.fromWindowId(kWindowId!);
-                  if (await wc.isMaximized()) {
-                    await wc.unmaximize();
+                  if (kWindowId == null) {
+                    if (await windowManager.isMaximized()) {
+                      await windowManager.unmaximize();
+                    } else {
+                      await windowManager.maximize();
+                    }
                   } else {
-                    await wc.maximize();
+                    final wc = WindowController.fromWindowId(kWindowId!);
+                    if (await wc.isMaximized()) {
+                      await wc.unmaximize();
+                    } else {
+                      await wc.maximize();
+                    }
                   }
                 } catch (_) {}
               },
@@ -605,7 +631,11 @@ class _WindowButtons extends StatelessWidget {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         _btn(Icons.remove, () {
-          windowManager.minimize();
+          if (kWindowId == null) {
+            windowManager.minimize();
+          } else {
+            WindowController.fromWindowId(kWindowId!).minimize();
+          }
         }),
         StatefulBuilder(builder: (context, setState) {
           return FutureBuilder<bool>(
@@ -615,11 +645,19 @@ class _WindowButtons extends StatelessWidget {
               return _btn(
                   maxed ? Icons.fullscreen_exit : Icons.fullscreen,
                   () async {
-                final wc = WindowController.fromWindowId(kWindowId!);
-                if (maxed) {
-                  await wc.unmaximize();
+                if (kWindowId == null) {
+                  if (maxed) {
+                    await windowManager.unmaximize();
+                  } else {
+                    await windowManager.maximize();
+                  }
                 } else {
-                  await wc.maximize();
+                  final wc = WindowController.fromWindowId(kWindowId!);
+                  if (maxed) {
+                    await wc.unmaximize();
+                  } else {
+                    await wc.maximize();
+                  }
                 }
                 setState(() {});
               });
@@ -628,9 +666,15 @@ class _WindowButtons extends StatelessWidget {
         }),
         _btn(Icons.close, () async {
           try {
-            final wc = WindowController.fromWindowId(kWindowId!);
-            await wc.setPreventClose(false);
-            await wc.close();
+            if (kWindowId == null) {
+              await windowManager.setPreventClose(false);
+              await windowManager.destroy();
+              exit(0);
+            } else {
+              final wc = WindowController.fromWindowId(kWindowId!);
+              await wc.setPreventClose(false);
+              await wc.close();
+            }
           } catch (_) {}
         }),
       ]),
