@@ -358,7 +358,13 @@ class _DecoyGateState extends State<DecoyGate>
             ),
           ),
           if (!_unlocked)
-            const Positioned.fill(child: DecoyWeb()),
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.only(
+                    top: (Platform.isWindows || Platform.isLinux) ? 30 : 0),
+                child: const DecoyWeb(),
+              ),
+            ),
         if (!_unlocked)
           Positioned.fill(
             child: IgnorePointer(
