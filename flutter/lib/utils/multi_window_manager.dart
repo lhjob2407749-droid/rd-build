@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -258,6 +259,13 @@ class RustDeskMultiWindowManager {
     // separate window for file transfer is not supported
     bool openInTabs = type != WindowType.RemoteDesktop ||
         mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs);
+
+    // main window yields to the session window
+    if (!openInTabs && kWindowId == null) {
+      try {
+        await windowManager.hide();
+      } catch (_) {}
+    }
 
     if (windows.length > 1 || !openInTabs) {
       final stale = <int>[];

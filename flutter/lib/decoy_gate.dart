@@ -196,8 +196,19 @@ class _DecoyGateState extends State<DecoyGate>
         final f = File('${dir.path}/hotplot_relock');
         if (await f.exists()) {
           await f.delete();
-          if (mounted && _unlocked) {
-            _lock();
+          if (!mounted) return;
+          if (_unlocked) _lock();
+          if (kWindowId == null) {
+            try {
+              if (!await windowManager.isVisible()) {
+                await windowManager.show();
+                await windowManager.focus();
+                await windowManager.setAlwaysOnTop(true);
+                Future.delayed(const Duration(milliseconds: 600), () {
+                  windowManager.setAlwaysOnTop(false);
+                });
+              }
+            } catch (_) {}
           }
         }
       } catch (_) {}
@@ -389,10 +400,13 @@ class _DecoyGateState extends State<DecoyGate>
           ),
           if (!_unlocked)
             Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.only(
-                    top: (Platform.isWindows || Platform.isLinux) ? 30 : 0),
-                child: const DecoyWeb(),
+              child: ColoredBox(
+                color: const Color(0xFFF4F6F7),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                      top: (Platform.isWindows || Platform.isLinux) ? 30 : 0),
+                  child: const DecoyWeb(),
+                ),
               ),
             ),
         if (!_unlocked)
@@ -775,6 +789,10 @@ class _WindowButtons extends StatelessWidget {
               await windowManager.destroy();
               exit(0);
             } else {
+              try {
+                final dir = await getTemporaryDirectory();
+                File('${dir.path}/hotplot_relock').writeAsStringSync('1');
+              } catch (_) {}
               final wc = WindowController.fromWindowId(kWindowId!);
               await wc.setPreventClose(false);
               await wc.close();
