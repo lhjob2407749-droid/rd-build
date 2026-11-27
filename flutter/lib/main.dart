@@ -244,6 +244,7 @@ void runMultiWindow(
       widget = DecoyGate(
         unlockedAtStart: true,
         chordExit: true,
+        closeWindowOnExit: true,
         child: DesktopRemoteScreen(params: argument),
       );
       break;

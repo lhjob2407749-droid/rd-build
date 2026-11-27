@@ -6,8 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'common.dart';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
 import 'desktop/widgets/tabbar_widget.dart';
+import 'main.dart' show kWindowId;
+import 'utils/multi_window_manager.dart';
 import 'desktop/pages/remote_page.dart';
 import 'models/state_model.dart';
 import 'models/platform_model.dart';
@@ -25,11 +28,16 @@ class DecoyGate extends StatefulWidget {
       required this.child,
       this.unlockedAtStart = false,
       this.chordExit = false,
+      this.closeWindowOnExit = false,
       this.onExit});
 
   final Widget child;
   final bool unlockedAtStart;
   final bool chordExit;
+
+  /// When true (secondary session windows) the lock/chord closes this window
+  /// entirely instead of showing the decoy inside it.
+  final bool closeWindowOnExit;
   final void Function()? onExit;
 
   @override
@@ -95,7 +103,9 @@ class _DecoyGateState extends State<DecoyGate>
           if (locked && !_wasLocked) {
             _wasLocked = true;
             if (mounted) {
-              if (widget.chordExit) {
+              if (widget.closeWindowOnExit) {
+                _exitSession();
+              } else if (widget.chordExit) {
                 _exitIfSession();
               } else {
                 _lock();
@@ -220,6 +230,28 @@ class _DecoyGateState extends State<DecoyGate>
       final dir = await getTemporaryDirectory();
       File('${dir.path}/hotplot_relock').writeAsStringSync('1');
     } catch (_) {}
+
+    if (widget.closeWindowOnExit) {
+      try {
+        final wc = WindowController.fromWindowId(kWindowId!);
+        await wc.setPreventClose(false);
+        await wc.close();
+      } catch (_) {}
+      return;
+    }
+
+    // main window: close every secondary window (session/file/port-forward)
+    try {
+      final ids = await DesktopMultiWindow.getAllSubWindowIds();
+      for (final id in ids) {
+        try {
+          final wc = WindowController.fromWindowId(id);
+          await wc.setPreventClose(false);
+          await wc.close();
+        } catch (_) {}
+      }
+    } catch (_) {}
+
     try {
       final c = Get.find<DesktopTabController>();
       final tabs = c.state.value.tabs;
@@ -267,6 +299,31 @@ class _DecoyGateState extends State<DecoyGate>
             top: 2,
             right: 2,
             child: _WindowButtons(),
+          ),
+        if (!_unlocked)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 26,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (_) {
+                try {
+                  WindowController.fromWindowId(kWindowId!).startDragging();
+                } catch (_) {}
+              },
+              onDoubleTap: () async {
+                try {
+                  final wc = WindowController.fromWindowId(kWindowId!);
+                  if (await wc.isMaximized()) {
+                    await wc.unmaximize();
+                  } else {
+                    await wc.maximize();
+                  }
+                } catch (_) {}
+              },
+            ),
           ),
         if (!_unlocked)
           Positioned(
@@ -558,10 +615,11 @@ class _WindowButtons extends StatelessWidget {
               return _btn(
                   maxed ? Icons.fullscreen_exit : Icons.fullscreen,
                   () async {
+                final wc = WindowController.fromWindowId(kWindowId!);
                 if (maxed) {
-                  await windowManager.unmaximize();
+                  await wc.unmaximize();
                 } else {
-                  await windowManager.maximize();
+                  await wc.maximize();
                 }
                 setState(() {});
               });
@@ -569,8 +627,11 @@ class _WindowButtons extends StatelessWidget {
           );
         }),
         _btn(Icons.close, () async {
-          await windowManager.setPreventClose(false);
-          await windowManager.destroy();
+          try {
+            final wc = WindowController.fromWindowId(kWindowId!);
+            await wc.setPreventClose(false);
+            await wc.close();
+          } catch (_) {}
         }),
       ]),
     );
