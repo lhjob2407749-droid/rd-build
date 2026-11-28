@@ -199,11 +199,6 @@ class _DecoyGateState extends State<DecoyGate>
     _down.clear();
     _chordFired = false;
     KeyChord.reset();
-    if (Platform.isWindows && kWindowId == null) {
-      try {
-        windowManager.setAlwaysOnTop(true);
-      } catch (_) {}
-    }
     if (!mounted) return;
     setState(() {
       _unlocked = false;
@@ -221,13 +216,6 @@ class _DecoyGateState extends State<DecoyGate>
     _down.clear();
     _chordFired = false;
     KeyChord.reset();
-    if (!_topmostCleared && Platform.isWindows && kWindowId == null) {
-      _topmostCleared = true;
-      try {
-        windowManager.setAlwaysOnTop(false);
-        clearTopmostOnce();
-      } catch (_) {}
-    }
     setState(() {
       _unlocked = true;
     });

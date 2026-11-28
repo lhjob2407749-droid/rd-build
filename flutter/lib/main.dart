@@ -37,18 +37,23 @@ WindowType? kWindowType;
 late List<String> kBootArgs;
 
 
-Future<void> _forceForegroundOnce() async {
+Future<void> _forceForegroundOnce({bool pulse = false}) async {
   if (!isWindows) return;
   final script = r"""
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class FGZ { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a); [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid); }'
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class FGZ { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a); [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid); [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f); }'
 $proc = [System.Diagnostics.Process]::GetProcessById(__APP_PID__)
 $h = $proc.MainWindowHandle
 if ($h -ne [IntPtr]::Zero) {
   [FGZ]::AllowSetForegroundWindow(__APP_PID__) | Out-Null
   [FGZ]::SetForegroundWindow($h) | Out-Null
   [FGZ]::SwitchToThisWindow($h, $true)
+  if (__PULSE__) {
+    [FGZ]::SetWindowPos($h, (New-Object IntPtr(-1)), 0,0,0,0, 0x0003) | Out-Null
+    Start-Sleep -Milliseconds 1200
+    [FGZ]::SetWindowPos($h, (New-Object IntPtr(-2)), 0,0,0,0, 0x0003) | Out-Null
+  }
 }
-""".replaceAll("__APP_PID__", "$pid");
+""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "true" : "false");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
@@ -58,7 +63,7 @@ if ($h -ne [IntPtr]::Zero) {
   }
 }
 
-Future<void> clearTopmostOnce() async {
+Future<void> clearTopmostOnce({bool pulse = false}) async {
   if (!isWindows) return;
   final script = r"""
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class NTZ { [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int i); }'
@@ -68,7 +73,7 @@ if ($h -ne [IntPtr]::Zero) {
   $ok = [NTZ]::SetWindowPos($h, (New-Object IntPtr(-2)), 0,0,0,0, 0x0003)
   Write-Output "ok=$ok style=$([NTZ]::GetWindowLong($h,-20).ToString('X'))"
 }
-""".replaceAll("__APP_PID__", "$pid");
+""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "true" : "false");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
@@ -277,9 +282,9 @@ void runMainApp(bool startService) async {
       // Move registration of active main window here to prevent from async visible check.
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
       if (isWindows) {
-        unawaited(_forceForegroundOnce());
-        Future.delayed(const Duration(milliseconds: 700), _forceForegroundOnce);
-        Future.delayed(const Duration(milliseconds: 2000), _forceForegroundOnce);
+        unawaited(_forceForegroundOnce(pulse: true));
+        Future.delayed(const Duration(milliseconds: 900), _forceForegroundOnce);
+        Future.delayed(const Duration(milliseconds: 2200), _forceForegroundOnce);
       }
     }
     windowManager.setOpacity(1);
@@ -319,10 +324,6 @@ void runMultiWindow(
     unawaited(windowManager.show());
     unawaited(windowManager.focus());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 100),
-          () => windowManager.setAlwaysOnTop(true).catchError((_) {}));
-      Future.delayed(const Duration(milliseconds: 800),
-          () => windowManager.setAlwaysOnTop(true).catchError((_) {}));
       Future.delayed(const Duration(milliseconds: 5000), _forceForegroundOnce);
       Future.delayed(const Duration(milliseconds: 9000), _forceForegroundOnce);
       Future.delayed(const Duration(milliseconds: 12000), _forceForegroundOnce);
