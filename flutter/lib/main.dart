@@ -53,7 +53,7 @@ if ($h -ne [IntPtr]::Zero) {
     [FGZ]::SetWindowPos($h, (New-Object IntPtr(-2)), 0,0,0,0, 0x0003) | Out-Null
   }
 }
-""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "true" : "false");
+""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "\$true" : "\$false");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
@@ -73,7 +73,7 @@ if ($h -ne [IntPtr]::Zero) {
   $ok = [NTZ]::SetWindowPos($h, (New-Object IntPtr(-2)), 0,0,0,0, 0x0003)
   Write-Output "ok=$ok style=$([NTZ]::GetWindowLong($h,-20).ToString('X'))"
 }
-""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "true" : "false");
+""".replaceAll("__APP_PID__", "$pid").replaceAll("__PULSE__", pulse ? "\$true" : "\$false");
   try {
     final r = await Process.run('powershell',
         ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script]);
