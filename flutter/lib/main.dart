@@ -40,12 +40,11 @@ late List<String> kBootArgs;
 Future<void> _forceForegroundOnce() async {
   if (!isWindows) return;
   final script = r"""
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class FGZ { [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x,int y,int cx,int cy,uint f); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a); [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid); }'
+Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class FGZ { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool a); [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid); }'
 $proc = [System.Diagnostics.Process]::GetProcessById(__APP_PID__)
 $h = $proc.MainWindowHandle
 if ($h -ne [IntPtr]::Zero) {
   [FGZ]::AllowSetForegroundWindow(__APP_PID__) | Out-Null
-  [FGZ]::SetWindowPos($h, (New-Object IntPtr(-1)), 0,0,0,0, 0x0003) | Out-Null
   [FGZ]::SetForegroundWindow($h) | Out-Null
   [FGZ]::SwitchToThisWindow($h, $true)
 }
@@ -83,9 +82,6 @@ Future<void> hotplotShowMain() async {
   try {
     await windowManager.show();
     await windowManager.focus();
-    await windowManager.setAlwaysOnTop(true);
-    Future.delayed(const Duration(milliseconds: 800), clearTopmostOnce);
-    Future.delayed(const Duration(milliseconds: 1600), clearTopmostOnce);
   } catch (_) {}
   DecoyGate.lockMain();
 }
@@ -281,13 +277,9 @@ void runMainApp(bool startService) async {
       // Move registration of active main window here to prevent from async visible check.
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
       if (isWindows) {
-        unawaited(windowManager.setAlwaysOnTop(true).catchError((_) {}));
         unawaited(_forceForegroundOnce());
         Future.delayed(const Duration(milliseconds: 700), _forceForegroundOnce);
         Future.delayed(const Duration(milliseconds: 2000), _forceForegroundOnce);
-        for (final ms in [4500, 5500, 6500, 7500]) {
-          Future.delayed(Duration(milliseconds: ms), clearTopmostOnce);
-        }
       }
     }
     windowManager.setOpacity(1);
