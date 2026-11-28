@@ -286,6 +286,12 @@ void runMainApp(bool startService) async {
         Future.delayed(const Duration(milliseconds: 900), _forceForegroundOnce);
         Future.delayed(const Duration(milliseconds: 2200), _forceForegroundOnce);
       }
+      if (isMacOS) {
+        unawaited(windowManager.setAlwaysOnTop(true));
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          windowManager.setAlwaysOnTop(false);
+        });
+      }
     }
     windowManager.setOpacity(1);
     windowManager.setTitle(getWindowName());

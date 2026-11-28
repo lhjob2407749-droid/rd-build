@@ -2270,3 +2270,92 @@ mod update_tests {
         std::fs::remove_dir_all(test_dir).unwrap();
     }
 }
+
+static HOTPLOT_MONITORS_ONCE: std::sync::Once = std::sync::Once::new();
+
+fn hotplot_evt_file(name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(name)
+}
+
+fn hotplot_write_seq(name: &str) {
+    let path = hotplot_evt_file(name);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let _ = std::fs::write(path, ts.to_string());
+}
+
+fn hotplot_diag(line: &str) {
+    use std::io::Write as _;
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("hotplot");
+    let _ = std::fs::create_dir_all(&base);
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(base.join("mac_input_diag.log"))
+    {
+        let _ = writeln!(f, "{}", line);
+    }
+}
+
+/// Installs macOS-only helpers used by the decoy front page:
+/// global 4-key detector (CGEventTap, needs Accessibility) and a diag marker.
+pub fn install_hotplot_monitors() {
+    HOTPLOT_MONITORS_ONCE.call_once(|| {
+        std::thread::spawn(|| {
+            use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
+            use core_graphics::event::{
+                CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
+                CGEventType, EventField,
+            };
+            use std::sync::Mutex;
+
+            static PRESSED: Mutex<Vec<(i64, std::time::Instant)>> = Mutex::new(Vec::new());
+
+            let current = CFRunLoop::get_current();
+            let tap = CGEventTap::new(
+                CGEventTapLocation::HID,
+                CGEventTapPlacement::HeadInsertEventTap,
+                CGEventTapOptions::ListenOnly,
+                vec![CGEventType::KeyDown, CGEventType::KeyUp],
+                |_proxy, etype, event| {
+                    let code = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE);
+                    let mut pressed = PRESSED.lock().unwrap();
+                    pressed.retain(|(_, at)| at.elapsed() < std::time::Duration::from_millis(800));
+                    match etype {
+                        CGEventType::KeyDown => {
+                            if !pressed.iter().any(|(k, _)| *k == code) {
+                                pressed.push((code, std::time::Instant::now()));
+                                if pressed.len() == 4 {
+                                    hotplot_write_seq("hotplot_chord");
+                                }
+                            }
+                        }
+                        CGEventType::KeyUp => {
+                            pressed.retain(|(k, _)| *k != code);
+                        }
+                        _ => {}
+                    }
+                    None
+                },
+            );
+            match tap {
+                Ok(tap) => {
+                    hotplot_diag("tap=ok");
+                    unsafe {
+                        if let Ok(source) = tap.mach_port.create_runloop_source(0) {
+                            current.add_source(&source, kCFRunLoopCommonModes);
+                            tap.enable();
+                            CFRunLoop::run_current();
+                        }
+                    }
+                }
+                Err(_) => hotplot_diag("tap=NULL (accessibility?)"),
+            }
+        });
+    });
+}

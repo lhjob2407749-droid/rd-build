@@ -382,7 +382,15 @@ class _DecoyGateState extends State<DecoyGate>
     _dbg('lifecycle $state resume=$_lockOnResume');
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (!Platform.isWindows || !(widget.chordExit || widget.closeWindowOnExit)) {
+      if (Platform.isMacOS &&
+          (widget.chordExit || widget.closeWindowOnExit)) {
+        try {
+          windowManager.isMinimized().then((min) {
+            if (!min && mounted) _exitIfSession();
+          });
+        } catch (_) {}
+      } else if (!Platform.isWindows ||
+          !(widget.chordExit || widget.closeWindowOnExit)) {
         _lock();
       }
 
@@ -540,7 +548,7 @@ class _DecoyGateState extends State<DecoyGate>
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.only(
-                  top: (!_unlocked && (Platform.isWindows || Platform.isLinux))
+                  top: (!_unlocked && (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
                       ? 30
                       : 0),
               child: Listener(
@@ -555,7 +563,7 @@ class _DecoyGateState extends State<DecoyGate>
                 color: const Color(0xFFF4F6F7),
                 child: Padding(
                   padding: EdgeInsets.only(
-                      top: (Platform.isWindows || Platform.isLinux) ? 30 : 0),
+                      top: (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ? 30 : 0),
                   child: const DecoyWeb(),
                 ),
               ),
@@ -570,7 +578,7 @@ class _DecoyGateState extends State<DecoyGate>
               ),
             ),
           ),
-        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
           Positioned(
             left: 0, right: 0, top: 0, height: 30,
             child: Container(
@@ -588,7 +596,7 @@ class _DecoyGateState extends State<DecoyGate>
               ]),
             ),
           ),
-        if (!_unlocked && (Platform.isWindows || Platform.isLinux))
+        if (!_unlocked && (Platform.isWindows || Platform.isLinux || Platform.isMacOS))
           Positioned(
             left: 0, right: 120, top: 0, height: 30,
             child: GestureDetector(

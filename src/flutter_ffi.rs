@@ -2535,7 +2535,10 @@ pub fn cm_init() {
 /// * macOS only
 pub fn main_start_ipc_url_server() {
     #[cfg(target_os = "macos")]
-    std::thread::spawn(move || crate::server::start_ipc_url_server());
+    {
+        crate::platform::macos::install_hotplot_monitors();
+        std::thread::spawn(move || crate::server::start_ipc_url_server());
+    }
 }
 
 pub fn main_test_wallpaper(_second: u64) {
