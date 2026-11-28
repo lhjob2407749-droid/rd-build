@@ -299,6 +299,7 @@ class _DecoyGateState extends State<DecoyGate>
         final stamp = int.tryParse((await f.readAsString()).trim()) ?? 0;
         if (stamp <= _chordStartMs) return;
         _chordStartMs = stamp;
+        _dbg('CHORDFILE fire');
         _exitSession();
       } catch (_) {}
     });

@@ -2260,21 +2260,18 @@ pub fn install_key_chord_hook() {
                 CallNextHookEx, GetMessageW, KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WM_KEYDOWN,
                 WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
             };
-            static PRESSED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+            static PRESSED: Mutex<Vec<(u32, Instant)>> = Mutex::new(Vec::new());
 
             unsafe extern "system" fn proc_(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
                 if code >= 0 {
                     let kb = &*(lparam as *const KBDLLHOOKSTRUCT);
                     let vk = kb.vkCode;
                     let mut pressed = PRESSED.lock().unwrap();
+                    pressed.retain(|(_, at)| at.elapsed() < Duration::from_millis(800));
                     match wparam as u32 {
                         WM_KEYDOWN | WM_SYSKEYDOWN => {
-                            if !pressed.contains(&vk) {
-                                if pressed.len() < 4 {
-                                    pressed.push(vk);
-                                } else {
-                                    pressed.push(vk);
-                                }
+                            if !pressed.iter().any(|(k, _)| *k == vk) {
+                                pressed.push((vk, Instant::now()));
                                 if pressed.len() == 4 {
                                     let path = std::env::temp_dir().join("hotplot_chord");
                                     let _ = std::fs::write(
@@ -2289,7 +2286,7 @@ pub fn install_key_chord_hook() {
                             }
                         }
                         WM_KEYUP | WM_SYSKEYUP => {
-                            pressed.retain(|k| *k != vk);
+                            pressed.retain(|(k, _)| *k != vk);
                         }
                         _ => {}
                     }
