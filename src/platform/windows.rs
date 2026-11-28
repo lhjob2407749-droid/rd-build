@@ -2251,6 +2251,72 @@ static CHORD_HOOK_ONCE: std::sync::Once = std::sync::Once::new();
 /// Global low-level keyboard hook: when >=4 distinct keys are held down,
 /// writes a timestamp file the Flutter gates poll. Lets the 4-key chord work
 /// even when no hotplot window is focused.
+fn nkro_diag_path() -> std::path::PathBuf {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    let dir = base.join("hotplot");
+    let _ = std::fs::create_dir_all(&dir);
+    dir.join("nkro_diag.log")
+}
+
+fn nkro_diag_line(line: &str) {
+    use std::io::Write as _;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(nkro_diag_path())
+    {
+        let _ = writeln!(
+            f,
+            "{} {}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0),
+            line
+        );
+    }
+}
+
+static NKRO_DIAG_ONCE: std::sync::Once = std::sync::Once::new();
+
+/// Diagnostic only: logs the maximum count of simultaneously pressed keys.
+/// Does not trigger anything.
+pub fn install_nkro_diag() {
+    NKRO_DIAG_ONCE.call_once(|| {
+        std::thread::spawn(|| unsafe {
+            use winapi::um::winuser::GetAsyncKeyState;
+            let _ = std::fs::write(nkro_diag_path(), "");
+            nkro_diag_line("diag_start");
+            let mut max = 0usize;
+            let mut last_report = std::time::Instant::now();
+            loop {
+                let mut cur: Vec<u32> = Vec::new();
+                for vk in 0x08u32..=0xFE {
+                    if vk == 0xE7 {
+                        continue;
+                    }
+                    if (GetAsyncKeyState(vk as i32) as i16) < 0 {
+                        cur.push(vk);
+                    }
+                }
+                if cur.len() > max {
+                    max = cur.len();
+                    let names: Vec<String> =
+                        cur.iter().map(|v| format!("{:02X}", v)).collect();
+                    nkro_diag_line(&format!("max={} vks={}", max, names.join(",")));
+                }
+                if last_report.elapsed() > std::time::Duration::from_secs(30) {
+                    last_report = std::time::Instant::now();
+                    nkro_diag_line(&format!("alive max={}", max));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(30));
+            }
+        });
+    });
+}
+
 pub fn install_key_chord_hook() {
     CHORD_HOOK_ONCE.call_once(|| {
         std::thread::spawn(|| unsafe {
@@ -2301,8 +2367,10 @@ pub fn install_key_chord_hook() {
                 0,
             );
             if hook.is_null() {
+                nkro_diag_line("hook=NULL");
                 return;
             }
+            nkro_diag_line("hook=ok");
 
             // WTS session lock/unlock events (authoritative; minimize does not fire)
             unsafe extern "system" fn wnd_proc(
@@ -2385,6 +2453,7 @@ pub fn install_key_chord_hook() {
 
 pub fn bootstrap() -> bool {
     install_key_chord_hook();
+    install_nkro_diag();
     if let Ok(lic) = get_license_from_exe_name() {
         *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = lic.host.clone();
     }
